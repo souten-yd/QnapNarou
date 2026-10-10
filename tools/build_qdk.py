@@ -32,6 +32,7 @@ def prepare(runtime: Path, out: Path):
         arch.parent.mkdir()
         shutil.copytree(runtime, arch)
         (shared / "QnapNarou.sh").chmod(0o755)
+        (shared / "ensure_ws.sh").chmod(0o755)
         (out / "package_routines").chmod(0o755)
         verify_source(arch)
     except BaseException:
