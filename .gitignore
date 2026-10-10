@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.qpkg
+upstream/narou.rs/
