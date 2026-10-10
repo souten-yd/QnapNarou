@@ -19,10 +19,10 @@ from urllib.parse import urlsplit
 
 try:
     from tools.installer import architecture, fetch_release, STATUS_FILE, STATUS_DIR, write_status
-    from tools.update_check import validate_release, parse_version
+    from tools.update_check import validate_release, parse_version, fetch_releases, summarize_releases
 except ModuleNotFoundError:
     from installer import architecture, fetch_release, STATUS_FILE, STATUS_DIR, write_status
-    from update_check import validate_release, parse_version
+    from update_check import validate_release, parse_version, fetch_releases, summarize_releases
 
 PORTAL_PORT = 8889
 UPDATE_SCRIPT = Path(__file__).resolve().with_name("installer.py")
@@ -83,16 +83,19 @@ p{line-height:1.65}
 <button id="health" class="secondary">サーバー状態を確認</button></div>
 <pre id="health-result"></pre></section>
 <section><h2>アプリ更新</h2>
-<p>GitHub Releases から最新版を確認します。更新に個別トークンは不要です。更新時のみディスクに書き込みます。</p>
+<p>GitHub Releases から最新版を確認します。更新に個別トークンは不要です。プレビュー版は取得後にQTSで手動インストールしてください。</p>
 <div class="actions"><button id="check">最新版を確認</button>
 <button id="install" disabled>最新版へ更新</button>
 <button id="status" class="secondary">更新状況</button></div>
+<p id="release-link" hidden><a id="download-release" target="_blank" rel="noopener noreferrer" href="#">QPKGを取得（QTSから手動インストール）</a></p>
 <pre id="result">更新確認を押してください。</pre></section>
 <section><h2>アクセスとデータ保護</h2><p>LAN / Tailscale 内のみを想定しています。NASのポートをインターネットへ公開しないでください。
 小説データはアプリ本体と別領域へ保存します。停電に備えてQNAPのバックアップも維持してください。</p></section></main>
 <script>
 const nonce="__NONCE__";
 const out=document.getElementById('result');
+const downloadLink=document.getElementById('download-release');
+const releaseLink=document.getElementById('release-link');
 document.getElementById('health').onclick=async()=>{
   const status=document.getElementById('health-result');
   status.textContent='接続確認中...';
@@ -105,13 +108,23 @@ document.getElementById('health').onclick=async()=>{
 };
 document.getElementById('open').href=location.protocol+'//'+location.hostname+':8888/';
 document.getElementById('check').onclick=async()=>{
-  out.textContent='確認中...';document.getElementById('install').disabled=true;
-  try{const r=await fetch('/api/check',{cache:'no-store'});const j=await r.json();
+  out.textContent='確認中...';
+  document.getElementById('install').disabled=true;
+  releaseLink.hidden=true;
+  try {
+    const r=await fetch('/api/check',{cache:'no-store'});const j=await r.json();
     if(!r.ok)throw Error(j.error||'取得失敗');
-    out.textContent='現在: '+j.current_version+' / 最新: '+j.latest_version+
-      (j.update_available?'（更新可能）':'（最新版）');
-    document.getElementById('install').disabled=!j.update_available;
-  }catch(e){out.textContent=String(e)}
+    out.textContent='現在: '+j.current_version+' / 最新: '+
+      (j.latest_version||'未公開')+'\n'+(j.message||'')+
+      (j.update_available?'\n新しいQPKGがあります。':'\n新しいQPKGはありません。');
+    // Install uses an independent QTS rollback workflow. Never enable before
+    // that workflow is device-qualified; preview download is manual only.
+    document.getElementById('install').disabled=true;
+    if(j.download_url && j.download_url.startsWith('https://github.com/souten-yd/QnapNarou/releases/download/')) {
+      downloadLink.href=j.download_url;
+      releaseLink.hidden=false;
+    }
+  }catch(e){out.textContent='更新確認に失敗しました: '+String(e)}
 };
 document.getElementById('install').onclick=async()=>{
   if(!confirm('検証済みQPKGでアプリを更新します。実行中の小説処理は終了してから続けてください。'))return;
@@ -172,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(500, {"error": "status unavailable"})
         elif path == "/api/check":
             try:
-                result = validate_release(fetch_release(), current_version(), architecture())
+                result = summarize_releases(fetch_releases(), current_version(), architecture())
                 self.respond(200, result)
             except Exception as exc:
                 self.respond(502, {"error": str(exc)[:160]})
