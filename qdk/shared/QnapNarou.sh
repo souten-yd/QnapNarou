@@ -37,8 +37,12 @@ start() {
   mkdir -p "$HOME_DIR" "$LIBRARY"
   export HOME="$HOME_DIR"
   export NAROU_DATA="$DATA"
-  # Keep upstream UI but block its own binary replacement. QPKG updates only.
+  # Prevent the upstream self-updater from bypassing QPKG validation.
   export NAROU_RS_DISABLE_SELF_UPDATE=1
+  # Python bytecode caches otherwise create needless .pyc writes on package disk.
+  export PYTHONDONTWRITEBYTECODE=1
+  # Bounded 16 MiB SQLite cache + in-memory temporary SQL data.
+  export NAROU_RS_QNAP_MEMORY_CACHE=1
   cd "$LIBRARY"
   # First install only: QTS LAN / Tailscale access without manual credentials.
   # WAN exposure of ports 8888 and 8889 must be prohibited by the NAS firewall.
