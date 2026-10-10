@@ -51,6 +51,9 @@ start() {
   "$INSTALL/ensure_ws.sh" "$BIN" "$MANAGER_PORT" || {
     echo "Narou WebSocket configuration failed" >&2; return 1;
   }
+  "$PYTHON" "$INSTALL/configure_hosts.py" "$BIN" || {
+    echo "Narou LAN host allow-list configuration failed" >&2; return 1;
+  }
   if ! is_running "$PIDFILE" "$BIN"; then
     "$BIN" web --port "$PORT" --no-browser >/dev/null 2>&1 &
     echo "$!" >"$PIDFILE"
