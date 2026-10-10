@@ -21,6 +21,26 @@ FIX_COMMENT = (
 )
 GPL_LICENSE = "GPL-3.0-only"
 
+# Upstream render.js is embedded with include_str! at Rust compile time.
+# Preserve the novel-list page on iPhone by requesting a real download.
+# target=_blank provides a recoverable tab if the download attribute is ignored.
+DOWNLOAD_ANCHOR = 'class="row-action-btn btn-download" title="書籍データをダウンロード"'
+FIXED_DOWNLOAD_ANCHOR = (
+    'download target="_blank" rel="noopener noreferrer" '
+    + DOWNLOAD_ANCHOR
+)
+
+
+def corrected_download_ui(source):
+    if source.count(DOWNLOAD_ANCHOR) != 1:
+        raise ValueError("upstream download-link markup drift: expected exactly one anchor")
+    if '/novels/${encodeURIComponent(String(novel.id))}/download' not in source:
+        raise ValueError("upstream EPUB download route has changed")
+    if FIXED_DOWNLOAD_ANCHOR in source:
+        raise ValueError("QNAP Safari download patch already applied")
+    return source.replace(DOWNLOAD_ANCHOR, FIXED_DOWNLOAD_ANCHOR, 1)
+
+
 
 def corrected_web_source(source):
     if source.count(START) != 1 or source.count(END) != 1:
@@ -53,7 +73,12 @@ def patch(repo):
     file = repo / "src/web/novels.rs"
     original = file.read_text(encoding="utf-8")
     replacement = corrected_web_source(original)
+    ui_file = repo / "src/web/assets/js/ui/render.js"
+    original_ui = ui_file.read_text(encoding="utf-8")
+    fixed_ui = corrected_download_ui(original_ui)
+    # Validate both source patches before changing either file.
     file.write_text(replacement, encoding="utf-8")
+    ui_file.write_text(fixed_ui, encoding="utf-8")
 
 
 def build(repo, runtime, target):
