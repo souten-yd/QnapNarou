@@ -1,0 +1,47 @@
+name: Publish verified RC5 artifact only (no rebuild)
+on:
+  push:
+    branches: [fix/ios-epub-download-navigation]
+    paths: [.github/workflows/publish-rc5.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Download already-tested QPKG artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          mkdir -p dist
+          gh run download 38094392643 --name QnapNarou-x86_64-0.1.4-RC5-EPUB --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.4.qpkg
+          echo 'c7c7b003fd014bdefd2288fdb40f307c810290976cf3e5639d91ef4a0f9cc3e5  dist/QnapNarou_x86_64_0.1.4.qpkg' | sha256sum -c -
+      - name: Publish prerelease without rebuilding Rust
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.4-rc5 >/dev/null 2>&1; then
+            echo 'RC5 already exists; refuse overwrite' >&2
+            exit 1
+          fi
+          cat > /tmp/rc5-notes.txt <<'RELEASE_NOTES'
+          PREVIEW for QTS 5.x, not a stable release. iPhone EPUB DL buttons now request a browser download,
+          with a new-tab fallback to preserve the original novel-list page. This is a compile-time QnapNarou
+          patch to pinned upstream render.js with fail-closed drift checks, retained on future QPKG builds.
+          Original Narou UI :8888, QTS manager :8889, EPUB GPL engine and persisted library are preserved.
+          Web automatic installation is not device-qualified; use manual QTS App Center upgrade.
+          Do not expose the NAS ports to the public Internet.
+          QTS Safari/Home Screen behavior still needs real-device confirmation before merging PR #9.
+          SHA-256: c7c7b003fd014bdefd2288fdb40f307c810290976cf3e5639d91ef4a0f9cc3e5
+          Source: https://github.com/souten-yd/QnapNarou/tree/fix/ios-epub-download-navigation
+          RELEASE_NOTES
+          gh release create v0.1.4-rc5 dist/QnapNarou_x86_64_0.1.4.qpkg --prerelease \
+            --target ac8f1c1213f5ed03411598d1ea59b10612e273d2 \
+            --title 'QnapNarou v0.1.4 RC5 - iPhone EPUB download navigation' \
+            --notes-file /tmp/rc5-notes.txt
