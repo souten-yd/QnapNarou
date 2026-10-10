@@ -18,11 +18,11 @@ import sys
 from urllib.parse import urlsplit
 
 try:
-    from tools.installer import architecture, fetch_release, STATUS_FILE, STATUS_DIR, write_status
-    from tools.update_check import validate_release, parse_version, fetch_releases, summarize_releases
+    from tools.installer import architecture, STATUS_FILE, STATUS_DIR
+    from tools.update_check import parse_version, fetch_releases, summarize_releases
 except ModuleNotFoundError:
-    from installer import architecture, fetch_release, STATUS_FILE, STATUS_DIR, write_status
-    from update_check import validate_release, parse_version, fetch_releases, summarize_releases
+    from installer import architecture, STATUS_FILE, STATUS_DIR
+    from update_check import parse_version, fetch_releases, summarize_releases
 
 PORTAL_PORT = 8889
 UPDATE_SCRIPT = Path(__file__).resolve().with_name("installer.py")
@@ -193,36 +193,18 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(404, {"error": "not found"})
 
     def do_POST(self):
-        if not self.allowed(): return
+        if not self.allowed():
+            return
         if urlsplit(self.path).path != "/api/install":
-            self.respond(404, {"error": "not found"}); return
-        host = self.headers.get("Host", "")
-        origin = self.headers.get("Origin", "")
-        if (origin not in ("http://" + host, "https://" + host) or
-                self.headers.get("X-QN-Nonce") != self.server.csrf or
-                self.headers.get("Content-Length", "0") != "0"):
-            self.respond(403, {"error": "same-origin update confirmation required"}); return
-        if STATUS_FILE.is_file():
-            try:
-                if json.loads(STATUS_FILE.read_text()).get("phase") in (
-                    "queued", "downloading", "installing", "rollback"):
-                    self.respond(409, {"error": "update already in progress"}); return
-            except (OSError, ValueError):
-                pass
-        try:
-            current = current_version()
-            if not validate_release(fetch_release(), current, architecture())["update_available"]:
-                self.respond(409, {"error": "no update available"}); return
-            write_status("queued")
-            subprocess.Popen([sys.executable, str(UPDATE_SCRIPT), "--current", current,
-                              "--staging", str(Path(os.environ["NAROU_DATA"]) / "updates")],
-                             start_new_session=True, stdin=subprocess.DEVNULL,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                             close_fds=True)
-            self.respond(202, {"started": True})
-        except Exception as exc:
-            write_status("failed", str(exc)[:160])
-            self.respond(500, {"error": "update could not start: " + str(exc)[:120]})
+            self.respond(404, {"error": "not found"})
+            return
+        # Fail closed at the HTTP layer, not only via disabled HTML buttons.
+        # A QTS install / restart / verified rollback integration test is
+        # mandatory before reintroducing an executable web upgrade handler.
+        self.respond(409, {
+            "error": "Web自動インストールは実機で未検証のため無効です。"
+                     "公開QPKGを取得してQTS App Centerから手動更新してください。"
+        })
 
 
 def main():
