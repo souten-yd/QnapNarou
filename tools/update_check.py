@@ -43,7 +43,10 @@ def validate_release(doc, current, arch):
         raise ValueError("unexpected asset filename")
     if not isinstance(asset.get("size"), int) or not (1024 <= asset["size"] <= 2_000_000_000):
         raise ValueError("invalid asset size")
-    return {"current_version": current, "latest_version": tag, "update_available": latest > current_version,
+    digest = asset.get("digest")
+    if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise ValueError("release asset has no trusted SHA-256 digest")
+    return {"sha256": digest[7:], "asset_size": asset["size"], "current_version": current, "latest_version": tag, "update_available": latest > current_version,
             "architecture": arch, "asset_name": filename, "download_url": download,
             "note": "Update installation is not implemented: do not download or execute from this checker."}
 
