@@ -40,11 +40,12 @@ def stage(source: Path, dest: Path) -> None:
         raise ValueError("destination already exists")
     # Copy the ENTIRE upstream runtime, not an ad hoc subset.
     # Upstream may add web assets, site definitions, and licenses.
-    shutil.copytree(source, dest, symlinks=False)
     try:
+        shutil.copytree(source, dest, symlinks=False)
         verify_source(dest)
     except BaseException:
-        shutil.rmtree(dest)
+        if dest.is_dir():
+            shutil.rmtree(dest)
         raise
 
 
