@@ -9,7 +9,6 @@ import argparse
 import json
 import re
 import sys
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 RELEASE_API = "https://api.github.com/repos/souten-yd/QnapNarou/releases/latest"
@@ -61,7 +60,6 @@ def validate_release(doc, current, arch, *, allow_prerelease=False):
     if len(matches) != 1:
         raise ValueError("release lacks exactly one matching QPKG artifact")
     asset = matches[0]
-    expected_url = REPO_ASSETS + quote(tag, safe="") + "/" + filename
     download = asset.get("browser_download_url")
     # GitHub URLs preserve the literal tag value (hyphen and dots).
     literal_url = REPO_ASSETS + tag + "/" + filename
