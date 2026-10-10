@@ -15,12 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: false
+          submodules: recursive
       - name: Python unit tests and QTS shell syntax
         run: |
           python3 -m compileall -q tools tests
           python3 -m unittest discover -s tests -v
           sh -n qdk/shared/QnapNarou.sh
+      - name: Verify pinned QNAP SQLite RAM-cache patch applies
+        run: |
+          python3 tools/apply_qnap_patch.py
+          git -C upstream/narou.rs diff --check
       - name: Show no background CI or privileged default changes
         run: |
           test -f upstream/narou.rs || true
