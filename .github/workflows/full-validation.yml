@@ -1,0 +1,33 @@
+name: Full lightweight validation (one-shot)
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/m5-upstream-sync]
+    paths: [.github/workflows/full-validation.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  full-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Python unit tests and QTS shell syntax
+        run: |
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -v
+          sh -n qdk/shared/QnapNarou.sh
+      - name: Verify pinned QNAP SQLite RAM-cache patch applies
+        run: |
+          python3 tools/apply_qnap_patch.py
+          git -C upstream/narou.rs diff --check
+      - name: Show no background CI or privileged default changes
+        run: |
+          test -f upstream/narou.rs || true
+          grep -q 'NAROU_RS_DISABLE_SELF_UPDATE=1' qdk/shared/QnapNarou.sh
+          grep -q 'PYTHONDONTWRITEBYTECODE=1' qdk/shared/QnapNarou.sh
+          test -f .gitmodules
