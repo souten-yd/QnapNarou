@@ -1,0 +1,8 @@
+#!/bin/sh
+# QDK lifecycle hooks. Novel libraries are intentionally kept outside $SYS_QPKG_DIR.
+pkg_pre_install() { return 0; }
+pkg_post_install() { return 0; }
+# QDK uninstall hooks are shell snippets, NOT functions; do not delete libraries.
+PKG_PRE_REMOVE=':'
+PKG_MAIN_REMOVE=':'
+PKG_POST_REMOVE=':'
