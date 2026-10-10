@@ -1,0 +1,24 @@
+name: Milestone validation (minimal)
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/m3-update-check]
+    paths:
+      - .github/workflows/milestone-validation.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Validate Python and QNAP startup scripts
+        run: |
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -v
+          sh -n qdk/shared/QnapNarou.sh
