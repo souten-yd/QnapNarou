@@ -26,12 +26,13 @@ def prepare(runtime: Path, out: Path):
         shared = out / "shared"
         shutil.copytree(template / "shared", shared)
         # The management server and updater ship with every QPKG, no pip install.
-        for name in ("manager.py", "installer.py", "update_check.py"):
+        for name in ("manager.py", "installer.py", "update_check.py", "configure_hosts.py"):
             shutil.copy2(template.parent / "tools" / name, shared / name)
         arch = out / "x86_64" / "runtime"
         arch.parent.mkdir()
         shutil.copytree(runtime, arch)
         (shared / "QnapNarou.sh").chmod(0o755)
+        (shared / "ensure_ws.sh").chmod(0o755)
         (out / "package_routines").chmod(0o755)
         verify_source(arch)
     except BaseException:

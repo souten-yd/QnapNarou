@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import platform
 import secrets
+import socket
 import subprocess
 import sys
 from urllib.parse import urlsplit
@@ -36,6 +37,16 @@ def permitted_peer(ip):
     except ValueError:
         return False
     return any(address in net for net in LAN_NETS)
+
+
+def narou_health(port=8888):
+    """One-shot, in-memory check; does not scan networks or poll the HDD."""
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.6):
+            return {"narou_running": True, "port": port}
+    except OSError:
+        return {"narou_running": False, "port": port,
+                "hint": "Narou is not listening locally. Check QTS service startup and WebSocket port settings."}
 
 
 def current_version():
@@ -68,7 +79,9 @@ p{line-height:1.65}
 <header><h1>QnapNarou <small>QTS 管理</small></h1></header>
 <main><section><h2>小説ライブラリ</h2>
 <p>本家 narou.rs の画面・操作方法をそのまま利用します。</p>
-<a id="open" href="#">Narou Web UI を開く</a></section>
+<div class="actions"><a id="open" href="#">Narou Web UI を開く</a>
+<button id="health" class="secondary">サーバー状態を確認</button></div>
+<pre id="health-result"></pre></section>
 <section><h2>アプリ更新</h2>
 <p>GitHub Releases から最新版を確認します。更新に個別トークンは不要です。更新時のみディスクに書き込みます。</p>
 <div class="actions"><button id="check">最新版を確認</button>
@@ -80,6 +93,16 @@ p{line-height:1.65}
 <script>
 const nonce="__NONCE__";
 const out=document.getElementById('result');
+document.getElementById('health').onclick=async()=>{
+  const status=document.getElementById('health-result');
+  status.textContent='接続確認中...';
+  try {
+    const response=await fetch('/api/health',{cache:'no-store'});
+    const info=await response.json();
+    status.textContent=info.narou_running?'Narouサーバーはポート8888で待受中です。':
+      'Narouがポート8888で待ち受けていません。QPKGを再起動してください。';
+  } catch(e) { status.textContent=String(e); }
+};
 document.getElementById('open').href=location.protocol+'//'+location.hostname+':8888/';
 document.getElementById('check').onclick=async()=>{
   out.textContent='確認中...';document.getElementById('install').disabled=true;
@@ -139,6 +162,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'")
             self.end_headers()
             self.wfile.write(page)
+        elif path == "/api/health":
+            self.respond(200, narou_health())
         elif path == "/api/status":
             try:
                 value = json.loads(STATUS_FILE.read_text()) if STATUS_FILE.is_file() else {"phase": "idle"}

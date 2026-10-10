@@ -1,0 +1,89 @@
+name: RC2 QTS LAN fix preflight and QPKG preview
+on:
+  push:
+    branches: [fix/rc1-narou-ws-port-conflict]
+    paths: [.github/workflows/rc2-qpkg.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-rc2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Verify WS conflict fix and complete Python integration
+        run: |
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -v
+          sh -n qdk/shared/QnapNarou.sh
+          sh -n qdk/shared/ensure_ws.sh
+          grep -q 'ensure_ws.sh' qdk/shared/QnapNarou.sh
+          grep -q 'configure_hosts.py' qdk/shared/QnapNarou.sh
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: upstream/narou.rs
+      - name: Install QPKG build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends musl-tools pkg-config build-essential cmake perl
+      - name: Compile complete, pinned narou.rs runtime
+        working-directory: upstream/narou.rs
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+        run: |
+          cargo local-build --locked --target x86_64-unknown-linux-musl
+          if readelf -l narou/narou_rs | grep -q INTERP; then
+            echo 'Refusing dynamically linked QNAP runtime' >&2
+            exit 1
+          fi
+      - name: Stage full QPKG with startup repair helpers
+        run: |
+          python3 tools/stage_release.py --source upstream/narou.rs/narou --dest build/runtime
+          python3 tools/build_qdk.py --runtime build/runtime --out build/qdk
+          test -x build/qdk/shared/ensure_ws.sh
+          test -s build/qdk/shared/configure_hosts.py
+          test -s build/qdk/shared/manager.py
+          test -s build/qdk/x86_64/runtime/narou_rs
+      - name: Build QPKG using QDK 2.5.3
+        run: |
+          curl -fL --retry 3 -o /tmp/qdk.deb https://github.com/qnap-dev/QDK/releases/download/v2.5.3/qdk_2.5.3_amd64.deb
+          sudo apt-get install -y /tmp/qdk.deb
+          cd build/qdk
+          qbuild
+      - name: Verify package exists and record SHA-256
+        run: |
+          mkdir -p dist
+          find build/qdk -type f -name '*.qpkg' -print
+          count=$(find build/qdk -type f -name '*.qpkg' | wc -l)
+          test "$count" -eq 1
+          find build/qdk -type f -name '*.qpkg' -exec cp {} dist/QnapNarou_x86_64_0.1.1.qpkg \;
+          test -s dist/QnapNarou_x86_64_0.1.1.qpkg
+          sha256sum dist/QnapNarou_x86_64_0.1.1.qpkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QnapNarou-x86_64-0.1.1-RC2-preview
+          path: dist/QnapNarou_x86_64_0.1.1.qpkg
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish pre-release for NAS validation, not stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.1-rc2 >/dev/null 2>&1; then
+            echo 'RC2 already published; refusing accidental overwrite' >&2
+            exit 1
+          fi
+          gh release create v0.1.1-rc2 dist/QnapNarou_x86_64_0.1.1.qpkg \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "QnapNarou v0.1.1 RC2 (LAN fix / QTS verification pending)" \
+            --notes "Preview only; QTS real-device upgrade, restart and Safari tests are not yet certified. Fixes upstream WS listener :8889 collision by configuring server-ws-port=0. Adds detected LAN/Tailscale IPs to upstream HTTP/WS allow-lists without losing existing entries, plus a one-click Web server health check. No novel data is deleted or moved. CPU: x86_64; Python 3 (/opt/bin/python3.11) is required for the manager. Ports 8888/8889 must remain LAN/Tailscale-only. Install this update manually from App Center; the stable-version checker intentionally does not automatically install prereleases."

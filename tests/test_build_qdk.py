@@ -23,6 +23,8 @@ class QdkTests(unittest.TestCase):
             prepare(src, out)
             self.assertTrue((out / "x86_64/runtime/narou_rs").exists())
             self.assertTrue((out / "shared/QnapNarou.sh").stat().st_mode & 0o111)
+            self.assertTrue((out / "shared/ensure_ws.sh").stat().st_mode & 0o111)
+            self.assertTrue((out / "shared/configure_hosts.py").is_file())
             self.assertEqual((out / "x86_64/runtime/preset/example.txt").read_text(), "example")
 
 
