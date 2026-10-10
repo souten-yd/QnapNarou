@@ -25,6 +25,9 @@ def prepare(runtime: Path, out: Path):
             shutil.copy2(template / name, out / name)
         shared = out / "shared"
         shutil.copytree(template / "shared", shared)
+        # The management server and updater ship with every QPKG, no pip install.
+        for name in ("manager.py", "installer.py", "update_check.py"):
+            shutil.copy2(template.parent / "tools" / name, shared / name)
         arch = out / "x86_64" / "runtime"
         arch.parent.mkdir()
         shutil.copytree(runtime, arch)
