@@ -1,0 +1,17 @@
+diff --git a/src/native/sqlite/mod.rs b/src/native/sqlite/mod.rs
+--- a/src/native/sqlite/mod.rs
++++ b/src/native/sqlite/mod.rs
+@@ -33,5 +33,13 @@ pub fn open(path: &std::path::Path) -> Result<Arc<Mutex<Connection>>> {
+         .map_err(sqlite_error)?;
+     conn.pragma_update(None, "synchronous", "NORMAL")
+         .map_err(sqlite_error)?;
++    // QNAP opt-in: keep SQLite sorting and page cache in RAM.
++    // WAL, committed rows and crash-durability settings stay unchanged.
++    if std::env::var_os("NAROU_RS_QNAP_MEMORY_CACHE").is_some() {
++        conn.pragma_update(None, "temp_store", "MEMORY")
++            .map_err(sqlite_error)?;
++        conn.pragma_update(None, "cache_size", -16384_i32)
++            .map_err(sqlite_error)?;
++    }
+     conn.pragma_update(None, "foreign_keys", "ON")
+         .map_err(sqlite_error)?;
