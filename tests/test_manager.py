@@ -1,5 +1,5 @@
 import unittest
-from tools.manager import permitted_peer, html_page, narou_health
+from tools.manager import permitted_peer, html_page, narou_health, Handler
 
 
 class ManagerTests(unittest.TestCase):
@@ -15,6 +15,20 @@ class ManagerTests(unittest.TestCase):
         info = narou_health(port=1)
         self.assertFalse(info["narou_running"])
         self.assertEqual(info["port"], 1)
+
+    def test_server_rejects_unqualified_automatic_upgrade(self):
+        class FakeRequest:
+            path = "/api/install"
+            def __init__(self):
+                self.result = None
+            def allowed(self):
+                return True
+            def respond(self, status, body):
+                self.result = (status, body)
+        request = FakeRequest()
+        Handler.do_POST(request)
+        self.assertEqual(request.result[0], 409)
+        self.assertIn("QTS", request.result[1]["error"])
 
     def test_portal_retains_upstream_ui_link(self):
         page = html_page("test-nonce")
