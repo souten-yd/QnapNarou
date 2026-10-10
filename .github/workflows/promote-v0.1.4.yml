@@ -1,0 +1,75 @@
+name: Promote verified QnapNarou v0.1.4 to stable (no Rust rebuild)
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/promote-v0.1.4.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  stable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Validate main release safety gates (no expensive build)
+        run: |
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -v
+          sh -n qdk/shared/QnapNarou.sh
+          sh -n qdk/shared/ensure_ws.sh
+          grep -q 'QPKG_VER="0.1.4"' qdk/qpkg.cfg
+          grep -q 'GPL-3.0-only' qdk/qpkg.cfg
+          grep -q 'corrected_download_ui(original_ui)' tools/build_epub_lite.py
+          grep -q 'Web自動インストールは実機で未検証' tools/manager.py
+          test -f .gitmodules
+      - name: Download original verified RC5 QPKG, validate SHA-256
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          mkdir -p dist
+          gh run download 38094392643 --name QnapNarou-x86_64-0.1.4-RC5-EPUB --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.4.qpkg
+          echo 'c7c7b003fd014bdefd2288fdb40f307c810290976cf3e5639d91ef4a0f9cc3e5  dist/QnapNarou_x86_64_0.1.4.qpkg' | sha256sum -c -
+      - name: Publish official non-prerelease v0.1.4
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.4 >/dev/null 2>&1; then
+            echo 'v0.1.4 already exists; refusing to overwrite' >&2
+            exit 1
+          fi
+          cat >/tmp/stable-notes.md <<'NOTES'
+          # QnapNarou 0.1.4 — stable
+
+          This is the same QPKG binary tested in v0.1.4-rc5 (no rebuild).
+
+          - Original narou.rs Web UI: port 8888
+          - QNAP management: port 8889, trusted LAN / Tailscale only
+          - EPUB creation via bundled AozoraEpub3_Lite (GPL-3.0-only)
+          - iPhone EPUB download keeps the original novel list available
+          - Update check handles stable and RC GitHub Releases with no manual token
+          - Upstream changes are pinned, and QNAP source patches are reapplied during future builds
+
+          Install or upgrade through **QTS App Center**. Back up the novel library first.
+          Web-based package installation / rollback is currently unqualified and remains disabled.
+          No measured HDD idle IOPS reduction, full RAM write-behind or ARM64 support is claimed.
+
+          SHA-256: c7c7b003fd014bdefd2288fdb40f307c810290976cf3e5639d91ef4a0f9cc3e5
+
+          Sources: https://github.com/souten-yd/QnapNarou/tree/main and pinned upstream/narou.rs.
+          This is a project stable release, not a QNAP vendor certification.
+          NOTES
+          gh release create v0.1.4 dist/QnapNarou_x86_64_0.1.4.qpkg \
+            --target "$GITHUB_SHA" \
+            --latest \
+            --title 'QnapNarou v0.1.4 — Stable' \
+            --notes-file /tmp/stable-notes.md
