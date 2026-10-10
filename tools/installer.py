@@ -134,26 +134,28 @@ def apply_update(current, arch, staging, *, run_command=None, fetch=None, downlo
     for candidate in (before, after):
         if candidate.exists() or candidate.is_symlink():
             raise ValueError("update staging requires empty destinations")
-    write_status("downloading", "Retrieving current version for rollback")
-    download(old, before)
-    write_status("downloading", "Retrieving next version")
-    download(new, after)
-    write_status("installing", "Applying verified QPKG via QTS")
-    command = ["/sbin/qpkg_cli", "-m", str(after), "-q", "-K"]
     try:
-        run_command(command, check=True, timeout=1200)
-    except BaseException:
-        write_status("rollback", "Upgrade failed, reinstalling previous verified QPKG")
+        write_status("downloading", "Retrieving current version for rollback")
+        download(old, before)
+        write_status("downloading", "Retrieving next version")
+        download(new, after)
+        write_status("installing", "Applying verified QPKG via QTS")
+        command = ["/sbin/qpkg_cli", "-m", str(after), "-q", "-K"]
         try:
-            run_command(["/sbin/qpkg_cli", "-m", str(before), "-q", "-K"], check=True, timeout=1200)
-        except BaseException as rollback_error:
-            raise RuntimeError("upgrade AND rollback failed; manual recovery required") from rollback_error
-        raise RuntimeError("upgrade failed; previous version restored")
+            run_command(command, check=True, timeout=1200)
+        except BaseException:
+            write_status("rollback", "Upgrade failed, reinstalling previous verified QPKG")
+            try:
+                run_command(["/sbin/qpkg_cli", "-m", str(before), "-q", "-K"], check=True, timeout=1200)
+            except BaseException as rollback_error:
+                raise RuntimeError("upgrade AND rollback failed; manual recovery required") from rollback_error
+            raise RuntimeError("upgrade failed; previous version restored")
+        write_status("complete", "QPKG updater finished")
     finally:
-        # Files belong to a disposable staging dir. Never touch library/home.
+        # Clean up both staged packages even if download fails halfway.
+        # Never touch the novel library or user settings.
         for candidate in (before, after):
             candidate.unlink(missing_ok=True)
-    write_status("complete", "QPKG updater finished")
 
 
 def main():
