@@ -46,6 +46,11 @@ start() {
     "$BIN" setting server-basic-auth.require-for-external-bind=false >/dev/null 2>&1 || return 1
     "$BIN" setting logging=false >/dev/null 2>&1 || return 1
   fi
+  # Restore a valid WebSocket port for fresh and already-initialized installs.
+  # Upstream defaults to PORT+1 (8889), occupied by QNAP management UI.
+  "$INSTALL/ensure_ws.sh" "$BIN" "$MANAGER_PORT" || {
+    echo "Narou WebSocket configuration failed" >&2; return 1;
+  }
   if ! is_running "$PIDFILE" "$BIN"; then
     "$BIN" web --port "$PORT" --no-browser >/dev/null 2>&1 &
     echo "$!" >"$PIDFILE"
