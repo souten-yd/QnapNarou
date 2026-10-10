@@ -15,10 +15,9 @@ QnapNarou prioritizes idle disk silence and safe persistence:
 
 Measure twice, under otherwise similar workloads:
 
-1. Running QnapNarou:
-   `/opt/bin/python3.11 tools/io_probe.py --seconds 120 --disks sda sdb`
-2. QnapNarou stopped:
-   use the same read-only measurement.
+1. Find your QPKG installation path with `/sbin/getcfg QnapNarou Install_Path -f /etc/config/qpkg.conf`.
+2. Run the QPKG-bundled read-only probe using `/opt/bin/python3.11 /path/to/QnapNarou/io_probe.py --seconds 120 --disks sda sdb`.
+3. Stop QnapNarou, run the same probe, and compare the counters.
 3. Compare write IOPS, write MiB/s and Busy %.
 4. Repeat once with any other poller (HomeHub, backup, Docker, etc.) stopped to isolate the culprit.
 
