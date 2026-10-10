@@ -13,9 +13,10 @@ class StageReleaseTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.src = self.root / "source"
         self.src.mkdir()
-        for name in ("narou_rs", "LICENSE", "README.md", "Third-Party-License.md", "commitversion"):
+        for name in ("narou_rs", "narou_rs_updater.new", "narou_rs_backup", "narou_rs_login", "LICENSE", "README.md", "Third-Party-License.md", "commitversion"):
             (self.src / name).write_text(name)
-        os.chmod(self.src / "narou_rs", 0o755)
+        for name in ("narou_rs", "narou_rs_updater.new", "narou_rs_backup", "narou_rs_login"):
+            os.chmod(self.src / name, 0o755)
         for name in ("webnovel", "preset"):
             d = self.src / name
             d.mkdir()
@@ -26,6 +27,11 @@ class StageReleaseTests(unittest.TestCase):
         stage(self.src, dest)
         verify_source(dest)
         self.assertEqual((dest / "preset/example.txt").read_text(), "payload")
+
+    def test_preserves_extra_upstream_files(self):
+        (self.src / "new_asset.js").write_text("new")
+        stage(self.src, self.root / "dest")
+        self.assertEqual((self.root / "dest/new_asset.js").read_text(), "new")
 
     def test_missing_asset_rejected(self):
         (self.src / "commitversion").unlink()
