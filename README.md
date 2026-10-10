@@ -6,7 +6,8 @@ QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Ch
 
 - [v0.1.1 RC2](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.1-rc2) — LAN/WebSocket startup repair; user-confirmed working on QTS.
 - [v0.1.2 RC3](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.2-rc3) — embedded GPL EPUB generator; builds and unit tests passed, QTS EPUB download confirmation pending.
-- v0.1.3 RC4 — fixes HTTP 404 when pressing 更新を確認 with only prereleases. [RC4 PR #8](https://github.com/souten-yd/QnapNarou/pull/8). QTS validation pending.
+- [v0.1.3 RC4](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.3-rc4) — fixes HTTP 404 when pressing 更新を確認 with only prereleases; QTS verification pending.
+- v0.1.4 RC5 — fixes iPhone EPUB download navigation, with a source-guarded patch reapplied on subsequent builds. [PR #9](https://github.com/souten-yd/QnapNarou/pull/9). QTS/iPhone validation pending.
 
 **These are prerelease packages**, not QTS-certified production releases. Back up your novel library before installing manually from QTS App Center. Never delete the QnapNarou-data directory to upgrade.
 
