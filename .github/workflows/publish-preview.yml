@@ -1,0 +1,38 @@
+name: Publish one QPKG preview (manual milestone)
+on:
+  workflow_dispatch:
+  push:
+    branches: [release/qpkg-preview]
+    paths: [.github/workflows/publish-preview.yml]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Download tested QDK build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          mkdir -p dist
+          gh run download 38061054701 --name QnapNarou-x86_64-QPKG-unverified --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.0.qpkg
+          echo 'dce3098280353988b581eae60fd3473bb25a9d004361563386411b68bd35959d  dist/QnapNarou_x86_64_0.1.0.qpkg' | sha256sum -c -
+      - name: Publish prerelease only (NOT stable)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.0-rc1 >/dev/null 2>&1; then
+            echo 'Preview release already exists; refusing overwrite'
+            exit 1
+          fi
+          gh release create v0.1.0-rc1 dist/QnapNarou_x86_64_0.1.0.qpkg --prerelease --target 45f8aab9cc5ab36d015cddb3620429cee760f172 --title 'QnapNarou 0.1.0 RC1 (QTS unverified)' --notes 'PREVIEW / NOT PRODUCTION: QDK x86_64 QPKG generated from pinned narou.rs, retaining original Web UI. Rust musl compile and Python tests passed. No QTS 5.x NAS installation, browser, upgrade, rollback, or HDD IOPS test has been performed. Requires an already available Python 3 interpreter (typically /opt/bin/python3.11) for management UI. Web UI ports 8888/8889 are intended for trusted LAN/Tailscale only, not Internet forwarding. Upstream self-update is disabled in local-build. Unsigned package may be rejected by App Center. The full RAM-first write-behind design is NOT yet implemented; persistent SQLite and novel data remain on disk. SHA-256: dce3098280353988b581eae60fd3473bb25a9d004361563386411b68bd35959d.'
