@@ -115,8 +115,8 @@ document.getElementById('check').onclick=async()=>{
     const r=await fetch('/api/check',{cache:'no-store'});const j=await r.json();
     if(!r.ok)throw Error(j.error||'取得失敗');
     out.textContent='現在: '+j.current_version+' / 最新: '+
-      (j.latest_version||'未公開')+'\n'+(j.message||'')+
-      (j.update_available?'\n新しいQPKGがあります。':'\n新しいQPKGはありません。');
+      (j.latest_version||'未公開')+'\\n'+(j.message||'')+
+      (j.update_available?'\\n新しいQPKGがあります。':'\\n新しいQPKGはありません。');
     // Install uses an independent QTS rollback workflow. Never enable before
     // that workflow is device-qualified; preview download is manual only.
     document.getElementById('install').disabled=true;
