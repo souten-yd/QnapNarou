@@ -2,7 +2,7 @@ name: RC4 QNAP update check + EPUB package (one-shot)
 on:
   push:
     branches: [fix/rc-releases-update-check]
-    paths: [.github/workflows/epub-rc4.yml]
+    paths: [.github/workflows/update-rc4.yml]
   workflow_dispatch:
 
 permissions:
