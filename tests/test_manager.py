@@ -22,6 +22,14 @@ class ManagerTests(unittest.TestCase):
         self.assertIn("X-QN-Nonce", page)
         self.assertIn("/api/health", page)
         self.assertIn("test-nonce", page)
+        self.assertIn("/api/check", page)
+        self.assertIn("release-link", page)
+        self.assertIn("QPKGを取得", page)
+        # Python's triple-quoted template must not expand JS escapes to raw
+        # newlines inside quoted JavaScript string literals.
+        self.assertIn("'\\n'", page)
+        self.assertIn("'\\n新しいQPKG", page)
+
 
 
 if __name__ == "__main__":
