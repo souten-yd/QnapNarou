@@ -1,24 +1,27 @@
 # QnapNarou
 
-QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs), with the original Narou Web UI on **8888** and a separate LAN-only QNAP administration screen on **8889**.
+QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
-## Availability
+## v0.1.4 — stable release
 
-- [v0.1.1 RC2](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.1-rc2) — LAN/WebSocket startup repair; user-confirmed working on QTS.
-- [v0.1.2 RC3](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.2-rc3) — embedded GPL EPUB generator; builds and unit tests passed, QTS EPUB download confirmation pending.
-- [v0.1.3 RC4](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.3-rc4) — fixes HTTP 404 when pressing 更新を確認 with only prereleases; QTS verification pending.
-- v0.1.4 RC5 — fixes iPhone EPUB download navigation, with a source-guarded patch reapplied on subsequent builds. [PR #9](https://github.com/souten-yd/QnapNarou/pull/9). QTS/iPhone validation pending.
+- [Download the stable QPKG](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.4) (x86_64).
+- Original narou.rs Web UI remains on **port 8888**; QTS management is on **port 8889**.
+- GPL-3.0-only AozoraEpub3_Lite EPUB generation is built in. iPhone downloads preserve the original novel-list tab where the browser permits; a new tab is used as a fallback.
+- QTS LAN and WebSocket port conflict fixes, and RC-aware update discovery, are included.
+- User has reported basic QTS/iPhone operation of RC5. This is **not an independent device certification**; upgrade/rollback and sustained disk-write measurements remain pending.
 
-**These are prerelease packages**, not QTS-certified production releases. Back up your novel library before installing manually from QTS App Center. Never delete the QnapNarou-data directory to upgrade.
+Use QTS App Center to install or upgrade the QPKG **without uninstalling**. Back up `QnapNarou-data` before making changes. Do not publish NAS ports 8888 and 8889 to the public Internet. A compatible Python 3 interpreter is currently needed for the local management page (commonly `/opt/bin/python3.11`).
 
-## Web-based updates
+## Updating
 
-The local administration page checks public GitHub Releases **only when clicked**. No token is required. When only RC versions exist, it shows the current/latest versions and a QPKG download link instead of returning the GitHub /releases/latest HTTP 404.
+The QTS manager checks public GitHub Releases **only when the user clicks 更新を確認**. It shows the latest stable or release-candidate version and offers a QPKG download link. No manual token is required. Installation is performed via QTS App Center: **automatic installation from the Web page is disabled server-side** until device-level crash/restart/rollback tests pass. Future releases must preserve this gate unless explicitly verified and approved.
 
-The in-browser automatic installer/rollback is **not device-qualified** and remains disabled. For now, download the QPKG via the link and install it through QTS App Center. Do not expose ports 8888/8889 to the public Internet.
+## Source, licenses, upstream integration
 
-## Source, licensing and low disk writes
+The original upstream source is pinned in `upstream/narou.rs` via Git submodule. QNAP changes to EPUB delivery and iOS navigation are explicit build-time source transformations in `tools/build_epub_lite.py`. An upstream source change that invalidates their assumptions fails the build rather than silently dropping the fixes.
 
-The original source is pinned as a Git submodule for reviewable upstream sync. GPL-labeled packages with the AozoraEpub3_Lite engine ship corresponding third-party notices. See [EPUB notes](docs/epub-rc3.md), [release gates](docs/release-gates.md), and [RC4 update-check details](docs/rc4-update-check.md).
+The GPL binary must be distributed with corresponding source and third-party license notices. See [upstream sync instructions](docs/upstream.md) and [EPUB details](docs/epub-rc3.md).
 
-The QNAP wrapper disables HTTP access logs and periodic release polling. Novels and SQLite remain durably stored; no measured HDD I/O reduction is claimed until real NAS before/after metrics exist. No automatic background CI or upgrades are scheduled.
+## Disk writes and CI
+
+Idle HTTP logging and periodic release checks are disabled. Novel data and SQLite remain durable on disk; full RAM-first write batching and an actual measured IOPS reduction are **not** claimed as implemented. Expensive Rust/QDK builds are performed manually per milestone, not on every push.
