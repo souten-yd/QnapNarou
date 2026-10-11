@@ -2,7 +2,7 @@
 
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
-## v0.1.7 — iPhone EPUB save dialog
+## v0.1.9 — icon integration
 
 - [v0.1.5 updater bootstrap](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.5) — first Web-updater version, installed once through QTS App Center.
 - v0.1.9: the approved book/NAS icon is also embedded in the original Narou :8888 Web UI for direct iPhone Home Screen shortcuts. See [v0.1.9 icon notes](docs/narou-home-icon-v019.md).
