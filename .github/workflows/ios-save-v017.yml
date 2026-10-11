@@ -23,6 +23,7 @@ jobs:
           node --check tools/qnap_epub_download.js
           node --check tests/test_qnap_epub_browser.cjs
           node tests/test_qnap_epub_browser.cjs
+          # This VM test intentionally emulates the browser AbortController.
           test -f tools/qnap_epub_download.js
           sh -n qdk/shared/QnapNarou.sh
           sh -n qdk/shared/ensure_ws.sh
