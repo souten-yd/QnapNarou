@@ -1,0 +1,74 @@
+name: Publish QnapNarou v0.1.5 stable Web updater (verified artifact)
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-v015.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Validate main has tested updater source
+        run: |
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -q
+          test "$(sed -n 's/^QPKG_VER="\([^"]*\)"/\1/p' qdk/qpkg.cfg)" = "0.1.5"
+          grep -q 'wait_for_running' tools/installer.py
+          grep -q 'same-origin confirmation required' tools/manager.py
+          grep -q 'corrected_download_ui' tools/build_epub_lite.py
+      - name: Retrieve exact verified QPKG without Rust rebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          mkdir -p dist
+          gh run download 38097869806 --name QnapNarou-x86_64-0.1.5-WebUpdater --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.5.qpkg
+          echo 'e8979128c5dc0a63941e06fd88d3841b5a44c628d9f1ca63341852204b65e3f0  dist/QnapNarou_x86_64_0.1.5.qpkg' | sha256sum -c -
+      - name: Publish normal stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.5 >/dev/null 2>&1; then
+            echo 'Release already exists; refusing overwrite' >&2
+            exit 1
+          fi
+          cat > /tmp/v015-notes.md <<'NOTES'
+          # QnapNarou v0.1.5 — Web update enabled
+
+          - Trusted LAN / Tailscale: open QNAP management on port 8889.
+          - Click 最新版を確認, then 最新版へ更新 when a NEW stable release appears.
+          - No user-entered tokens, login setup, manual downloads, or background polling.
+          - Verifies GitHub QPKG size, SHA-256, architecture and stable version.
+          - Stages the prior verified QPKG for rollback, applies through QTS CLI,
+            then checks installed version plus ports 8888/8889.
+          - Keeps the original Narou UI, embedded GPL EPUB generator,
+            iPhone navigation fix and persistent novel library unchanged.
+          - RC preview updates still require manual QTS App Center installation.
+
+          BOOTSTRAP: existing v0.1.4 must upgrade ONCE via QTS App Center,
+          because its Web install action was disabled. Future stable releases
+          are one-click from this page.
+
+          Actual NAS Web-triggered upgrade/rollback and power-loss recovery are
+          not yet device-qualified; retain a QNAP backup of novel data.
+          The operating system's QPKG signature policy is NOT bypassed.
+          Never expose ports 8888/8889 to the public Internet.
+
+          QPKG SHA-256: e8979128c5dc0a63941e06fd88d3841b5a44c628d9f1ca63341852204b65e3f0
+          Source: https://github.com/souten-yd/QnapNarou/tree/main
+          NOTES
+          gh release create v0.1.5 dist/QnapNarou_x86_64_0.1.5.qpkg \
+            --target "$GITHUB_SHA" --latest \
+            --title 'QnapNarou v0.1.5 — Web Update Enabled' \
+            --notes-file /tmp/v015-notes.md

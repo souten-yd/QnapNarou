@@ -103,10 +103,10 @@ def summarize_releases(releases, current, arch):
         "current_version": current, "latest_version": chosen["latest_version"],
         "update_available": chosen["update_available"],
         "prerelease": chosen["prerelease"], "download_url": chosen["download_url"],
-        "auto_install_allowed": False,
+        "auto_install_allowed": bool(chosen["update_available"] and not chosen["prerelease"]),
         "message": ("プレビュー版です。QTSから手動インストールしてください。"
                     if chosen["prerelease"] else
-                    "正式版が見つかりました。自動更新はQTS実機検証後に有効化します。"),
+                    "正式版が見つかりました。新しいバージョンはWeb画面から更新できます。"),
     }
 
 

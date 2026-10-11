@@ -2,19 +2,21 @@
 
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
-## v0.1.4 — stable release
+## v0.1.5 — stable Web-updater release
 
-- [Download the stable QPKG](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.4) (x86_64).
+- [Download the stable v0.1.5 QPKG](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.5) (x86_64). The Narou Rust binary matches v0.1.4; only the QNAP updater management and package metadata changed.
 - Original narou.rs Web UI remains on **port 8888**; QTS management is on **port 8889**.
 - GPL-3.0-only AozoraEpub3_Lite EPUB generation is built in. iPhone downloads preserve the original novel-list tab where the browser permits; a new tab is used as a fallback.
 - QTS LAN and WebSocket port conflict fixes, and RC-aware update discovery, are included.
-- User has reported basic QTS/iPhone operation of RC5. This is **not an independent device certification**; upgrade/rollback and sustained disk-write measurements remain pending.
+- User has confirmed basic QTS/iPhone operation of v0.1.4 RC5. The **v0.1.5 Web-initiated upgrade path has not yet been confirmed on a real NAS**; update/rollback and sustained disk-write measurements remain open.
 
 Use QTS App Center to install or upgrade the QPKG **without uninstalling**. Back up `QnapNarou-data` before making changes. Do not publish NAS ports 8888 and 8889 to the public Internet. A compatible Python 3 interpreter is currently needed for the local management page (commonly `/opt/bin/python3.11`).
 
 ## Updating
 
-The QTS manager checks public GitHub Releases **only when the user clicks 更新を確認**. It shows the latest stable or release-candidate version and offers a QPKG download link. No manual token is required. Installation is performed via QTS App Center: **automatic installation from the Web page is disabled server-side** until device-level crash/restart/rollback tests pass. Future releases must preserve this gate unless explicitly verified and approved.
+From **v0.1.5**, QTS manager can apply a newer **stable** GitHub QPKG directly from the Web UI: click 最新版を確認 → 最新版へ更新. No user-entered token, background polling or credential setup. Downloads are checked for exact release URL, size, SHA-256 and architecture. The previous stable QPKG is fetched for recovery before installing. Updates run in a detached worker; the installed version and both Web ports must pass a bounded health check. If validation fails, the worker attempts a verified rollback. Preview (RC) releases still require QTS App Center manual installation.
+
+**Bootstrap:** v0.1.4 has this action disabled, so install v0.1.5 once through App Center. LAN/Tailscale only; do not expose ports publicly. QTS signature policy is not bypassed. NAS one-click upgrade and power-loss recovery still require real-device testing.
 
 ## Source, licenses, upstream integration
 

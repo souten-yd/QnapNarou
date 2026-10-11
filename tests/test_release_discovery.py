@@ -38,6 +38,7 @@ class ReleaseDiscoveryTests(unittest.TestCase):
                                      release("0.2.0")], "0.1.2", "x86_64")
         self.assertEqual(result["latest_version"], "v0.2.0")
         self.assertFalse(result["prerelease"])
+        self.assertTrue(result["auto_install_allowed"])
 
     def test_newer_rc_beats_older_stable(self):
         result = summarize_releases([release("0.2.0"),
