@@ -2,10 +2,11 @@
 
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
-## v0.1.6 — Web-updater acceptance release
+## v0.1.7 — iPhone EPUB save dialog
 
 - [v0.1.5 updater bootstrap](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.5) — first Web-updater version, installed once through QTS App Center.
-- [v0.1.6 stable update target](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.6) — version-only QPKG update to test v0.1.5 → v0.1.6 directly from the Web page; original GPL EPUB/iPhone runtime is unchanged.
+- [v0.1.6 stable](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.6) — QTS Web-updater acceptance passed on the NAS.
+- v0.1.7 — EPUB save/share modal on iPhone; avoids automatically navigating away from the original novel list, and is reapplied on reviewed upstream builds. See [iOS notes](docs/ios-epub-save-v017.md).
 - Original narou.rs Web UI remains on **port 8888**; QTS management is on **port 8889**.
 - GPL-3.0-only AozoraEpub3_Lite EPUB generation is built in. iPhone downloads preserve the original novel-list tab where the browser permits; a new tab is used as a fallback.
 - QTS LAN and WebSocket port conflict fixes, and RC-aware update discovery, are included.

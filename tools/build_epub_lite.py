@@ -21,25 +21,39 @@ FIX_COMMENT = (
 )
 GPL_LICENSE = "GPL-3.0-only"
 
-# Upstream render.js is embedded with include_str! at Rust compile time.
-# Preserve the novel-list page on iPhone by requesting a real download.
-# target=_blank provides a recoverable tab if the download attribute is ignored.
+# The upstream Web UI is embedded with include_str! in a Rust binary. The
+# QNAP-owned handler is injected at native build time, never copied to a live
+# QTS data folder. Refuse unknown upstream markup rather than silently lose
+# the fix when the pinned submodule is updated.
+DOWNLOAD_ROUTE = '/novels/${encodeURIComponent(String(novel.id))}/download'
 DOWNLOAD_ANCHOR = 'class="row-action-btn btn-download" title="書籍データをダウンロード"'
-FIXED_DOWNLOAD_ANCHOR = (
-    'download target="_blank" rel="noopener noreferrer" '
-    + DOWNLOAD_ANCHOR
-)
+FIXED_DOWNLOAD_ANCHOR = 'data-qnap-epub="1" ' + DOWNLOAD_ANCHOR
+OVERLAY_MARKER = "QnapNarou EPUB save/share overlay."
+OVERLAY_PATH = Path(__file__).with_name("qnap_epub_download.js")
 
 
-def corrected_download_ui(source):
+def corrected_download_ui(source, overlay=None):
+    if overlay is None:
+        overlay = OVERLAY_PATH.read_text(encoding="utf-8")
     if source.count(DOWNLOAD_ANCHOR) != 1:
         raise ValueError("upstream download-link markup drift: expected exactly one anchor")
-    if '/novels/${encodeURIComponent(String(novel.id))}/download' not in source:
+    position = source.index(DOWNLOAD_ANCHOR)
+    if DOWNLOAD_ROUTE not in source[max(0, position - 200):position]:
         raise ValueError("upstream EPUB download route has changed")
-    if FIXED_DOWNLOAD_ANCHOR in source:
-        raise ValueError("QNAP Safari download patch already applied")
-    return source.replace(DOWNLOAD_ANCHOR, FIXED_DOWNLOAD_ANCHOR, 1)
-
+    if FIXED_DOWNLOAD_ANCHOR in source or OVERLAY_MARKER in source:
+        raise ValueError("QNAP EPUB overlay already applied")
+    if overlay.count(OVERLAY_MARKER) != 1 or not all(
+        item in overlay for item in (
+            "event.preventDefault()", "event.stopImmediatePropagation()",
+            "navigator.canShare", "navigator.share", "URL.createObjectURL",
+            "fetch(url.href", "data-qnap-epub"
+        )
+    ):
+        raise ValueError("missing or incomplete QNAP EPUB save/share overlay")
+    # Validation precedes any source changes. Rust recompilation embeds the
+    # UI on every reviewed upstream gitlink update; old QPKG binaries are not
+    # modified in place.
+    return source.replace(DOWNLOAD_ANCHOR, FIXED_DOWNLOAD_ANCHOR, 1) + "\n" + overlay + "\n"
 
 
 def corrected_web_source(source):
