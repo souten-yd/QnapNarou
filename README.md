@@ -2,9 +2,10 @@
 
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
-## v0.1.5 — stable Web-updater release
+## v0.1.6 — Web-updater acceptance release
 
-- [Download the stable v0.1.5 QPKG](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.5) (x86_64). The Narou Rust binary matches v0.1.4; only the QNAP updater management and package metadata changed.
+- [v0.1.5 updater bootstrap](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.5) — first Web-updater version, installed once through QTS App Center.
+- [v0.1.6 stable update target](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.6) — version-only QPKG update to test v0.1.5 → v0.1.6 directly from the Web page; original GPL EPUB/iPhone runtime is unchanged.
 - Original narou.rs Web UI remains on **port 8888**; QTS management is on **port 8889**.
 - GPL-3.0-only AozoraEpub3_Lite EPUB generation is built in. iPhone downloads preserve the original novel-list tab where the browser permits; a new tab is used as a fallback.
 - QTS LAN and WebSocket port conflict fixes, and RC-aware update discovery, are included.
