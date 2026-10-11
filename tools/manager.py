@@ -27,6 +27,9 @@ except ModuleNotFoundError:
 
 PORTAL_PORT = 8889
 UPDATE_SCRIPT = Path(__file__).resolve().with_name("installer.py")
+ICON_DIR = Path(__file__).resolve().parent
+ICON_ENDPOINTS = {"/apple-touch-icon.png": "apple-touch-icon.png",
+                  "/icon-192.png": "icon-192.png", "/favicon.png": "favicon.png"}
 LAN_NETS = [ipaddress.ip_network(x) for x in
             ("127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
              "192.168.0.0/16", "100.64.0.0/10")]
@@ -61,10 +64,17 @@ def html_page(nonce):
     return """<!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QnapNarou 管理</title><style>
+<title>QnapNarou 管理</title>
+<meta name="theme-color" content="#101823">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="QnapNarou">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="manifest" href="/manifest.webmanifest"><style>
 :root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif}
 body{margin:0;background:#101823;color:#eaf2fd;min-height:100vh}
-header{background:#182433;border-bottom:1px solid #304156;padding:19px 26px}
+header{background:#182433;border-bottom:1px solid #304156;padding:calc(19px + env(safe-area-inset-top, 0px)) 26px 19px}
 h1{font-size:1.25rem;margin:0}small{color:#9ab0c5}
 main{max-width:760px;margin:auto;padding:24px}
 section{background:#1b2939;border:1px solid #34445a;border-radius:18px;padding:24px;margin-bottom:16px}
@@ -177,6 +187,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def respond_manifest(self):
+        manifest = {
+            "name": "QnapNarou", "short_name": "Narou",
+            "start_url": "/", "scope": "/", "display": "standalone",
+            "background_color": "#101823", "theme_color": "#101823",
+            "icons": [{"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"}]
+        }
+        payload = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/manifest+json; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(payload)
+
     def allowed(self):
         if permitted_peer(self.client_address[0]):
             return True
@@ -195,6 +221,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'")
             self.end_headers()
             self.wfile.write(page)
+        elif path in ICON_ENDPOINTS:
+            icon = ICON_DIR / ICON_ENDPOINTS[path]
+            try:
+                payload = icon.read_bytes()
+            except OSError:
+                self.respond(404, {"error": "icon unavailable"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(payload)
+        elif path == "/manifest.webmanifest":
+            self.respond_manifest()
         elif path == "/api/health":
             self.respond(200, narou_health())
         elif path == "/api/status":
