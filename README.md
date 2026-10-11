@@ -2,13 +2,13 @@
 
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
-## v0.1.4 — stable release
+## v0.1.5 — stable Web-updater release
 
-- [Download the stable QPKG](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.4) (x86_64).
+- [Download the stable v0.1.5 QPKG](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.5) (x86_64). The Narou Rust binary matches v0.1.4; only the QNAP updater management and package metadata changed.
 - Original narou.rs Web UI remains on **port 8888**; QTS management is on **port 8889**.
 - GPL-3.0-only AozoraEpub3_Lite EPUB generation is built in. iPhone downloads preserve the original novel-list tab where the browser permits; a new tab is used as a fallback.
 - QTS LAN and WebSocket port conflict fixes, and RC-aware update discovery, are included.
-- User has reported basic QTS/iPhone operation of RC5. This is **not an independent device certification**; upgrade/rollback and sustained disk-write measurements remain pending.
+- User has confirmed basic QTS/iPhone operation of v0.1.4 RC5. The **v0.1.5 Web-initiated upgrade path has not yet been confirmed on a real NAS**; update/rollback and sustained disk-write measurements remain open.
 
 Use QTS App Center to install or upgrade the QPKG **without uninstalling**. Back up `QnapNarou-data` before making changes. Do not publish NAS ports 8888 and 8889 to the public Internet. A compatible Python 3 interpreter is currently needed for the local management page (commonly `/opt/bin/python3.11`).
 
