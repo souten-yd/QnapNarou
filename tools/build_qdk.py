@@ -10,8 +10,10 @@ import subprocess
 import sys
 try:
     from tools.stage_release import verify_source
+    from tools.build_icons import generate as generate_icons
 except ModuleNotFoundError:  # direct execution from repository root
     from stage_release import verify_source
+    from build_icons import generate as generate_icons
 
 
 def prepare(runtime: Path, out: Path):
@@ -25,6 +27,8 @@ def prepare(runtime: Path, out: Path):
             shutil.copy2(template / name, out / name)
         shared = out / "shared"
         shutil.copytree(template / "shared", shared)
+        # Persistent QPKG/portal icons are packaged once: no QTS-side image processing.
+        generate_icons(out)
         # The management server and updater ship with every QPKG, no pip install.
         for name in ("manager.py", "installer.py", "update_check.py", "configure_hosts.py"):
             shutil.copy2(template.parent / "tools" / name, shared / name)
