@@ -7,6 +7,10 @@ verified against a known upstream structure and applied in the CI checkout.
 import argparse
 import os
 from pathlib import Path
+try:
+    from tools.build_narou_home_icon import patch_native_upstream
+except ModuleNotFoundError:
+    from build_narou_home_icon import patch_native_upstream
 import shutil
 import subprocess
 import sys
@@ -106,6 +110,7 @@ def build(repo, runtime, target):
         raise ValueError("AozoraEpub3_Lite license missing")
 
     patch(repo)
+    patch_native_upstream(repo)
     env = os.environ.copy()
     env["NAROU_RS_RELEASE_BUILD"] = "1"
     env["NAROU_RS_LOCAL_BUILD"] = "1"

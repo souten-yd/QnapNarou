@@ -1,0 +1,82 @@
+name: Publish v0.1.9 direct Narou iPhone Home Screen icon
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-v019.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Verify merged QNAP overlay source and lightweight regression tests
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -q
+          node --check tools/qnap_epub_download.js
+          node tests/test_qnap_epub_browser.cjs
+          grep -q 'QPKG_VER="0.1.9"' qdk/qpkg.cfg
+          grep -q 'OVERLAY_MARKER' tools/build_epub_lite.py
+          test -s assets/qnapnarou-approved.jpg
+          test -f tools/build_icons.py
+          grep -q 'patch_native_upstream(repo)' tools/build_epub_lite.py
+          test -f tools/build_narou_home_icon.py
+          grep -q 'wait_for_running' tools/installer.py
+          test -f .gitmodules
+      - name: Fetch previously compiled QPKG; SHA-256 must match
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          mkdir -p dist
+          gh run download 38110914069 --name QnapNarou-x86_64-0.1.9-HomeIcon --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.9.qpkg
+          echo '57633a9ee0b8af8ad872be710292243c53b2360737e02bc54f5043e65019cc29  dist/QnapNarou_x86_64_0.1.9.qpkg' | sha256sum -c -
+      - name: Publish normal GitHub release; no Rust recompile
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.9 >/dev/null 2>&1; then
+            echo 'v0.1.9 already exists; refusing overwrite' >&2
+            exit 1
+          fi
+          cat >/tmp/v017-release.md <<'RELEASE_NOTES'
+          # QnapNarou v0.1.9 — Direct Narou Home Screen icon
+
+          The approved glowing book/NAS icon now works on BOTH:
+          - QNAP App Center and management portal :8889 (introduced v0.1.8)
+          - Original Narou.rs novel library :8888, directly added to iPhone
+            Safari Home Screen (new native Rust embedded icon)
+          Pinned upstream Narou.rs receives a fail-closed build-time patch
+          that embeds one PNG asset and one apple-touch-icon link. Changes
+          to upstream asset structure stop the build rather than drop the icon.
+
+          The original Narou page, EPUB generator, iPhone save/share dialog,
+          Web updater, persistent novel library and runtime I/O behavior
+          are unchanged.
+
+          Update using QNAP manager port 8889 -> 最新版を確認 -> 最新版へ更新.
+          After update, remove and recreate old iPhone Home Screen shortcuts
+          on :8888 or :8889 if iOS still shows a cached icon.
+
+          All Python and Node tests, native x86_64 musl Rust build, EPUB
+          generation test and QDK packaging passed. Real Safari icon caching
+          is to be checked on device.
+
+          SHA-256: 57633a9ee0b8af8ad872be710292243c53b2360737e02bc54f5043e65019cc29
+          Source: https://github.com/souten-yd/QnapNarou/tree/main
+          RELEASE_NOTES
+          gh release create v0.1.9 dist/QnapNarou_x86_64_0.1.9.qpkg \
+            --target "$GITHUB_SHA" --latest \
+            --title 'QnapNarou v0.1.9 — iPhone EPUB Save Dialog' \
+            --notes-file /tmp/v017-release.md
