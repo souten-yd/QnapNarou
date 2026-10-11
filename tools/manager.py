@@ -5,6 +5,7 @@ No background polling, no persistent access log, no manually entered token.
 Update requests require a same-origin browser and an ephemeral CSRF nonce.
 """
 import argparse
+import fcntl
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
 import json
@@ -18,10 +19,10 @@ import sys
 from urllib.parse import urlsplit
 
 try:
-    from tools.installer import architecture, STATUS_FILE, STATUS_DIR
+    from tools.installer import architecture, STATUS_FILE, STATUS_DIR, LOCK_FILE, write_status
     from tools.update_check import parse_version, fetch_releases, summarize_releases
 except ModuleNotFoundError:
-    from installer import architecture, STATUS_FILE, STATUS_DIR
+    from installer import architecture, STATUS_FILE, STATUS_DIR, LOCK_FILE, write_status
     from update_check import parse_version, fetch_releases, summarize_releases
 
 PORTAL_PORT = 8889
@@ -83,11 +84,11 @@ p{line-height:1.65}
 <button id="health" class="secondary">サーバー状態を確認</button></div>
 <pre id="health-result"></pre></section>
 <section><h2>アプリ更新</h2>
-<p>GitHub Releases から最新版を確認します。更新に個別トークンは不要です。プレビュー版は取得後にQTSで手動インストールしてください。</p>
+<p>GitHub Releases から最新版を確認します。更新に個別トークンは不要です。正式版はこの画面から直接更新できます。プレビュー版はQTSから手動導入してください。</p>
 <div class="actions"><button id="check">最新版を確認</button>
 <button id="install" disabled>最新版へ更新</button>
 <button id="status" class="secondary">更新状況</button></div>
-<p id="release-link" hidden><a id="download-release" target="_blank" rel="noopener noreferrer" href="#">QPKGを取得（QTSから手動インストール）</a></p>
+<p id="release-link" hidden><a id="download-release" target="_blank" rel="noopener noreferrer" href="#">QPKGを手動取得</a></p>
 <pre id="result">更新確認を押してください。</pre></section>
 <section><h2>アクセスとデータ保護</h2><p>LAN / Tailscale 内のみを想定しています。NASのポートをインターネットへ公開しないでください。
 小説データはアプリ本体と別領域へ保存します。停電に備えてQNAPのバックアップも維持してください。</p></section></main>
@@ -117,9 +118,8 @@ document.getElementById('check').onclick=async()=>{
     out.textContent='現在: '+j.current_version+' / 最新: '+
       (j.latest_version||'未公開')+'\\n'+(j.message||'')+
       (j.update_available?'\\n新しいQPKGがあります。':'\\n新しいQPKGはありません。');
-    // Install uses an independent QTS rollback workflow. Never enable before
-    // that workflow is device-qualified; preview download is manual only.
-    document.getElementById('install').disabled=true;
+    // Only newer stable releases are eligible; RC releases stay manual.
+    document.getElementById('install').disabled=!(j.auto_install_allowed && j.update_available);
     if(j.download_url && j.download_url.startsWith('https://github.com/souten-yd/QnapNarou/releases/download/')) {
       downloadLink.href=j.download_url;
       releaseLink.hidden=false;
@@ -131,9 +131,29 @@ document.getElementById('install').onclick=async()=>{
   document.getElementById('install').disabled=true;out.textContent='更新開始中...';
   try{const r=await fetch('/api/install',{method:'POST',headers:{'X-QN-Nonce':nonce}});
     const j=await r.json();if(!r.ok)throw Error(j.error||'更新開始失敗');
-    out.textContent='更新処理を開始しました。更新状況ボタンで確認できます。';
+    out.textContent='更新を開始しました。アプリが一度再起動します。';
+    watchUpdate();
   }catch(e){out.textContent=String(e)}
 };
+let watcher=null;
+function watchUpdate(){
+  if(watcher)clearInterval(watcher);
+  let attempts=0;
+  watcher=setInterval(async()=>{
+    attempts++;
+    try{
+      const r=await fetch('/api/status',{cache:'no-store'});
+      const status=await r.json();
+      out.textContent='更新状況: '+status.phase+' / '+(status.detail||'');
+      if(['complete','failed'].includes(status.phase)){
+        clearInterval(watcher);watcher=null;
+        if(status.phase==='complete')out.textContent+='\\n更新成功。ページを再読み込みしてください。';
+      }
+    }catch(e){out.textContent='更新中です。管理画面の再起動を待っています。';}
+    if(attempts>=120){clearInterval(watcher);watcher=null;
+      out.textContent+='\\n時間がかかっています。「更新状況」で確認してください。';}
+  },3000);
+}
 document.getElementById('status').onclick=async()=>{
   try{const r=await fetch('/api/status',{cache:'no-store'});out.textContent=JSON.stringify(await r.json(),null,2)}
   catch(e){out.textContent=String(e)}
@@ -198,13 +218,48 @@ class Handler(BaseHTTPRequestHandler):
         if urlsplit(self.path).path != "/api/install":
             self.respond(404, {"error": "not found"})
             return
-        # Fail closed at the HTTP layer, not only via disabled HTML buttons.
-        # A QTS install / restart / verified rollback integration test is
-        # mandatory before reintroducing an executable web upgrade handler.
-        self.respond(409, {
-            "error": "Web自動インストールは実機で未検証のため無効です。"
-                     "公開QPKGを取得してQTS App Centerから手動更新してください。"
-        })
+        # No user-entered token: ephemeral nonce and same-origin check are
+        # transparently handled by the QTS Web page.
+        host = self.headers.get("Host", "")
+        origin = self.headers.get("Origin", "")
+        if (origin not in ("http://" + host, "https://" + host) or
+                self.headers.get("X-QN-Nonce") != self.server.csrf or
+                self.headers.get("Content-Length", "0") != "0"):
+            self.respond(403, {"error": "same-origin confirmation required"})
+            return
+        try:
+            with LOCK_FILE.open("a+") as file_lock:
+                fcntl.flock(file_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                if STATUS_FILE.is_file():
+                    status = json.loads(STATUS_FILE.read_text())
+                    if status.get("phase") in (
+                            "queued", "downloading", "installing", "verifying", "rollback"):
+                        self.respond(409, {"error": "更新処理は既に実行中です"})
+                        return
+                current = current_version()
+                latest = summarize_releases(fetch_releases(), current, architecture())
+                if not latest["update_available"] or not latest["auto_install_allowed"]:
+                    self.respond(409, {"error": "自動更新可能な新しい正式版がありません"})
+                    return
+                # Worker accepts no untrusted URL/arguments from the browser.
+                root = Path(os.environ["NAROU_DATA"]).resolve()
+                staging = root / "updates"
+                write_status("queued", "Preparing verified stable QPKG update")
+                try:
+                    worker = subprocess.Popen(
+                        [sys.executable, str(UPDATE_SCRIPT), "--current", current,
+                         "--staging", str(staging)],
+                        start_new_session=True, stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        close_fds=True)
+                except OSError:
+                    write_status("failed", "更新ワーカーを起動できませんでした")
+                    raise
+            self.respond(202, {"started": True, "worker_pid": worker.pid})
+        except BlockingIOError:
+            self.respond(409, {"error": "更新処理は既に実行中です"})
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            self.respond(500, {"error": "更新開始失敗: " + str(exc)[:150]})
 
 
 def main():
