@@ -61,7 +61,7 @@ async function main() {
   };
   const ctx = {
     document, location, navigator, URL, Blob, File, Element: FakeElement,
-    Uint8Array, setTimeout: (callback, delay) => { const timer = setTimeout(callback, delay); timer.unref(); return timer; }, clearTimeout, console,
+    Uint8Array, AbortController, setTimeout: (callback, delay) => { const timer = setTimeout(callback, delay); timer.unref(); return timer; }, clearTimeout, console,
     fetch: async () => {
       fetchCalls++;
       return {
