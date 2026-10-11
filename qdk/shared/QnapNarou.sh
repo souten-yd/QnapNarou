@@ -7,6 +7,7 @@ PIDFILE=/var/run/qpkg-narou.pid
 MANAGER_PIDFILE=/var/run/qpkg-narou-manager.pid
 BOOT_DIR=/var/run/qpkg-narou-boot-retry
 BOOT_REPORT=/var/run/qpkg-narou-boot-status
+BOOT_STOP=/var/run/qpkg-narou-boot-stop
 MANAGER_PORT=8889
 PORT="$(printenv NAROU_PORT 2>/dev/null || printf 8888)"
 case "$PORT" in *[!0-9]*|"") exit 1;; esac
@@ -148,6 +149,7 @@ boot_retry() {
   trap 'exit 0' TERM INT
   count=0
   while [ "$count" -lt 24 ]; do
+    [ ! -e "$BOOT_STOP" ] || return 0
     if start_once; then
       memory_status "$BOOT_REASON"
       return 0
@@ -184,6 +186,7 @@ schedule_retry() {
 }
 
 start() {
+  rm -f "$BOOT_STOP" 2>/dev/null || true
   if start_once; then
     memory_status "$BOOT_REASON"
     return 0
@@ -210,10 +213,20 @@ stop_one() {
 }
 
 stop() {
-  # Cancel delayed start so Stop/Disable does not unexpectedly restart apps.
+  # Cancel delayed start and wait for the worker to exit before stopping
+  # services. This avoids a race where Stop is followed by a late boot retry.
+  : >"$BOOT_STOP"
   if retry_active; then
     kill "$(cat "$BOOT_DIR/pid")" 2>/dev/null || true
-    sleep 1
+    i=0
+    while [ "$i" -lt 12 ] && retry_active; do
+      sleep 1
+      i=$((i + 1))
+    done
+    if retry_active; then
+      memory_status "cold-boot worker did not exit; refusing unsafe stop"
+      return 1
+    fi
   fi
   resolve_ready || true
   if [ -n "$INSTALL" ]; then
