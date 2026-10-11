@@ -12,6 +12,8 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import socket
+import time
 import subprocess
 import sys
 from urllib.parse import quote, urlparse
@@ -119,13 +121,61 @@ def write_status(phase, detail=""):
     os.replace(tmp, STATUS_FILE)
 
 
-def apply_update(current, arch, staging, *, run_command=None, fetch=None, download=None):
+def installed_version():
+    """Read the authoritative QTS package version, not the worker filename."""
+    value = subprocess.check_output(
+        ["/sbin/getcfg", "QnapNarou", "Version", "-f", "/etc/config/qpkg.conf"],
+        timeout=5, text=True).strip()
+    return ".".join(map(str, parse_version(value)))
+
+
+def service_responds():
+    """Both Narou and QNAP manager must be listening after an upgrade."""
+    for port in (8888, 8889):
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.7):
+                pass
+        except OSError:
+            return False
+    return True
+
+
+def wait_for_running(expected, *, timeout=100):
+    """Bounded post-install verification; no background polling when idle."""
+    deadline = time.monotonic() + timeout
+    attempted_start = False
+    while time.monotonic() < deadline:
+        try:
+            matching = installed_version() == expected
+            if matching and service_responds():
+                return True
+            if matching and not attempted_start:
+                # QTS does not always auto-start a manually installed QPKG.
+                service = Path("/etc/init.d/QnapNarou.sh")
+                if service.is_file():
+                    subprocess.run([str(service), "start"], timeout=25,
+                                   check=False, stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL)
+                attempted_start = True
+        except (OSError, ValueError, subprocess.CalledProcessError):
+            pass
+        time.sleep(2)
+    return False
+
+
+def apply_update(current, arch, staging, *, run_command=None, fetch=None,
+                 download=None, verify=None):
     run_command = run_command or subprocess.run
     fetch = fetch or fetch_release
     download = download or download_package
+    verify = verify or wait_for_running
     # A previous, checksum-verified release is mandatory for rollback.
     old, new = plan(current, arch, fetch(), fetch("v" + current.lstrip("v")))
+    if staging.is_symlink():
+        raise ValueError("update staging cannot be a symbolic link")
     staging.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not staging.is_dir():
+        raise ValueError("update staging is not a directory")
     before = staging / old["asset_name"]
     after = staging / new["asset_name"]
     if before == after:
@@ -141,16 +191,26 @@ def apply_update(current, arch, staging, *, run_command=None, fetch=None, downlo
         download(new, after)
         write_status("installing", "Applying verified QPKG via QTS")
         command = ["/sbin/qpkg_cli", "-m", str(after), "-q", "-K"]
+        failure = None
         try:
+            # QTS signature/package policy remains enforced (no -A bypass).
             run_command(command, check=True, timeout=1200)
-        except BaseException:
-            write_status("rollback", "Upgrade failed, reinstalling previous verified QPKG")
+            write_status("verifying", "Waiting for QTS and both Web services")
+            if not verify(new["version"]):
+                raise RuntimeError("QTS version or Web server health check failed")
+        except Exception as exc:
+            failure = exc
+        if failure is not None:
+            write_status("rollback", "Restoring verified previous QPKG")
             try:
-                run_command(["/sbin/qpkg_cli", "-m", str(before), "-q", "-K"], check=True, timeout=1200)
-            except BaseException as rollback_error:
-                raise RuntimeError("upgrade AND rollback failed; manual recovery required") from rollback_error
-            raise RuntimeError("upgrade failed; previous version restored")
-        write_status("complete", "QPKG updater finished")
+                run_command(["/sbin/qpkg_cli", "-m", str(before), "-q", "-K"],
+                            check=True, timeout=1200)
+                if not verify(current):
+                    raise RuntimeError("rollback package installed but Web services not healthy")
+            except Exception as rollback_error:
+                raise RuntimeError("upgrade and recovery failed; check QTS App Center") from rollback_error
+            raise RuntimeError("upgrade failed; verified previous version restored") from failure
+        write_status("complete", "QTS " + new["version"] + " and both Web services verified")
     finally:
         # Clean up both staged packages even if download fails halfway.
         # Never touch the novel library or user settings.
