@@ -67,7 +67,7 @@ class ManagerTests(unittest.TestCase):
             status.assert_called_once()
             popen.assert_called_once()
             argv = popen.call_args.args[0]
-            self.assertEqual(argv[-3:-1], ["--current", "0.1.4"])
+            self.assertEqual(argv[2:4], ["--current", "0.1.4"])
             self.assertIn(str(root / "updates"), argv)
 
     def test_busy_worker_and_preview_are_rejected(self):
