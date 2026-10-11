@@ -1,0 +1,84 @@
+name: Publish QnapNarou v0.1.10 QTS cold-boot recovery
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-v0110.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Check merged boot recovery and regressions without Rust build
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -q
+          sh -n qdk/shared/QnapNarou.sh
+          sh -n qdk/shared/ensure_ws.sh
+          grep -q 'QPKG_VER="0.1.10"' qdk/qpkg.cfg
+          grep -q 'schedule_retry' qdk/shared/QnapNarou.sh
+          grep -q 'BOOT_STOP' qdk/shared/QnapNarou.sh
+          grep -q 'QPKG_SERVICE_PROGRAM="QnapNarou.sh"' qdk/qpkg.cfg
+          grep -q 'wait_for_running' tools/installer.py
+          grep -q 'corrected_download_ui' tools/build_epub_lite.py
+          test -s assets/qnapnarou-approved.jpg
+          test -f tools/build_narou_home_icon.py
+      - name: Retrieve verified QPKG from one-shot CI, enforce SHA-256
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          mkdir -p dist
+          gh run download 38122280485 --name QnapNarou-x86_64-0.1.10-BootRecovery --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.10.qpkg
+          echo 'a13178a699cf45ec30cca4e2949df67d33634ec7ea01150cd5e79ebdf323af72  dist/QnapNarou_x86_64_0.1.10.qpkg' | sha256sum -c -
+      - name: Publish normal stable QPKG without recompilation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.10 >/dev/null 2>&1; then
+            echo 'v0.1.10 already exists: refusing overwrite' >&2
+            exit 1
+          fi
+          cat > /tmp/v0110-notes.md <<'RELEASE_NOTES'
+          # QnapNarou v0.1.10 — QTS Reboot Recovery
+
+          Addresses QnapNarou not becoming available after restarting a NAS.
+          QTS shared-volume or Entware Python readiness delays can cause the
+          old service to abort before both Web listeners start.
+
+          - Bounded memory-only delayed boot retries; no perpetual background task.
+          - Wait for QPKG runtime and Python; check real port 8888 and 8889 listeners.
+          - No new disk logs, no novel data reset, no QTS privilege or signature bypass.
+          - Stop cancels pending retries to avoid unexpected late restarts.
+          - RAM diagnosis: cat /var/run/qpkg-narou-boot-status
+          - Preserves v0.1.9 GPL EPUB, iPhone icons, in-memory save modal
+            and tokenless Web update (same verified Rust executable).
+
+          Tested: 66 Python unit/regression tests including simulated
+          cold boot and Stop cancellation, QDK package and checksum verification.
+
+          The cause of the individual user's NAS outage is not confirmed by
+          NAS logs, and the fix must still be verified through a real QTS reboot.
+
+          If QNAP management port 8889 is unavailable, install through QTS
+          App Center without uninstalling QnapNarou or deleting novel data.
+          Once the portal is reachable, normal Web updates remain supported.
+
+          SHA-256: a13178a699cf45ec30cca4e2949df67d33634ec7ea01150cd5e79ebdf323af72
+          Source: https://github.com/souten-yd/QnapNarou/tree/main
+          RELEASE_NOTES
+          gh release create v0.1.10 dist/QnapNarou_x86_64_0.1.10.qpkg \
+            --target "$GITHUB_SHA" --latest \
+            --title 'QnapNarou v0.1.10 — QTS Boot Recovery' \
+            --notes-file /tmp/v0110-notes.md
