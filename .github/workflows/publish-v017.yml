@@ -1,0 +1,84 @@
+name: Publish v0.1.7 iPhone EPUB save modal (existing verified QPKG)
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-v017.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Verify merged QNAP overlay source and lightweight regression tests
+        run: |
+          python3 -m compileall -q tools tests
+          python3 -m unittest discover -s tests -q
+          node --check tools/qnap_epub_download.js
+          node tests/test_qnap_epub_browser.cjs
+          grep -q 'QPKG_VER="0.1.7"' qdk/qpkg.cfg
+          grep -q 'OVERLAY_MARKER' tools/build_epub_lite.py
+          grep -q 'wait_for_running' tools/installer.py
+          test -f .gitmodules
+      - name: Fetch previously compiled QPKG; SHA-256 must match
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          mkdir -p dist
+          gh run download 38099327634 --name QnapNarou-x86_64-0.1.7-iOS-Save --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.7.qpkg
+          echo '650816710655dbfc1ff4bfb410fdc6ef422ec5513a615b30463ab1190b8ee787  dist/QnapNarou_x86_64_0.1.7.qpkg' | sha256sum -c -
+      - name: Publish normal GitHub release; no Rust recompile
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          if gh release view v0.1.7 >/dev/null 2>&1; then
+            echo 'v0.1.7 already exists; refusing overwrite' >&2
+            exit 1
+          fi
+          cat >/tmp/v017-release.md <<'RELEASE_NOTES'
+          # QnapNarou v0.1.7 — iPhone EPUB save dialog
+
+          Fix: Tapping the per-novel EPUB button no longer directly navigates
+          to an irreversible full-screen native EPUB preview on iPhone.
+
+          - Fetch the EPUB on demand, then show a closable Save/Share dialog.
+          - Share/Save uses the native file-sharing sheet if the browser supports
+            the Web Share API (may be unavailable on a plain HTTP LAN address).
+          - Download creates an in-memory EPUB Blob from a separate user tap,
+            retaining the original novel-list page; a new-tab fallback is used
+            only if the browser ignores the download attribute.
+          - Verify EPUB/ZIP header, HTTP status and 150 MiB size limit.
+          - Upstream updates: QNAP-owned JS is re-applied at Rust compile time;
+            unknown upstream download markup fails the build rather than
+            silently losing the fix.
+          - Original Narou UI, GPL EPUB engine, Web QPKG updater, and persistent
+            novel library are unchanged.
+          - No new background polling, NAS disk cache, or persistent logging.
+
+          Upgrade directly from the QNAP manager at port 8889:
+          最新版を確認 -> 最新版へ更新. No manual token required.
+          Ports 8888/8889 must remain LAN/Tailscale only.
+
+          The QPKG has passed CI (Python, JavaScript browser simulation, native
+          EPUB generator, static musl binary and QDK packaging).
+          Actual iPhone Safari / Home Screen save behavior still requires
+          confirmation on the NAS. On insecure HTTP LAN origins, native share
+          may not be supported, but the explicit Blob Download action remains.
+
+          SHA-256: 650816710655dbfc1ff4bfb410fdc6ef422ec5513a615b30463ab1190b8ee787
+          Source: https://github.com/souten-yd/QnapNarou/tree/main
+          RELEASE_NOTES
+          gh release create v0.1.7 dist/QnapNarou_x86_64_0.1.7.qpkg \
+            --target "$GITHUB_SHA" --latest \
+            --title 'QnapNarou v0.1.7 — iPhone EPUB Save Dialog' \
+            --notes-file /tmp/v017-release.md
