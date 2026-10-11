@@ -53,14 +53,15 @@ async function main() {
       return selector === 'tr' ? { querySelector: () => ({ textContent: '日本語タイトル' }) } : null;
     }
   };
-  const target = { closest(selector) { return selector === 'a.row-action-btn.btn-download[data-qnap-epub]' ? link : null; } };
+  const target = new FakeElement('span');
+  target.closest = selector => selector === 'a.row-action-btn.btn-download[data-qnap-epub]' ? link : null;
   const navigator = {
     canShare: () => true,
     share: async () => { shareCalls++; }
   };
   const ctx = {
     document, location, navigator, URL, Blob, File, Element: FakeElement,
-    Uint8Array, setTimeout, clearTimeout, console,
+    Uint8Array, setTimeout: (callback, delay) => { const timer = setTimeout(callback, delay); timer.unref(); return timer; }, clearTimeout, console,
     fetch: async () => {
       fetchCalls++;
       return {
