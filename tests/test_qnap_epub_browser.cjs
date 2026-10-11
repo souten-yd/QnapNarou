@@ -29,7 +29,10 @@ class FakeElement {
     this.html = value;
     this.elements = new Map();
     for (const name of ['panel', 'message', 'share', 'save', 'dismiss']) {
-      this.elements.set('.qnap-epub-' + name, new FakeElement(name));
+      const element = new FakeElement(name);
+      // HTML initially renders Share and Download as disabled before fetch.
+      element.disabled = name === 'share' || name === 'save';
+      this.elements.set('.qnap-epub-' + name, element);
     }
   }
   querySelector(query) { return this.elements?.get(query) || null; }
