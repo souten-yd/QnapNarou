@@ -1,6 +1,6 @@
 import unittest
 from tools.build_epub_lite import (corrected_web_source, corrected_download_ui, START, END,
-                                  DOWNLOAD_ANCHOR, FIXED_DOWNLOAD_ANCHOR)
+                                  DOWNLOAD_ANCHOR, FIXED_DOWNLOAD_ANCHOR, OVERLAY_MARKER, DOWNLOAD_ROUTE)
 
 
 class EpubLiteBuildTests(unittest.TestCase):
@@ -30,27 +30,41 @@ class EpubLiteBuildTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             corrected_web_source(corrected_web_source(self.sample()))
 
-    def test_qnap_safari_download_keeps_original_novel_list(self):
-        source = ('const downloadLink = `<a href="/novels/${encodeURIComponent(String(novel.id))}/download" '
-                  + DOWNLOAD_ANCHOR + '>↓</a>`;')
-        result = corrected_download_ui(source)
-        self.assertIn(FIXED_DOWNLOAD_ANCHOR, result)
-        self.assertIn('download target="_blank" rel="noopener noreferrer"', result)
-        self.assertIn('/novels/${encodeURIComponent(String(novel.id))}/download', result)
-        self.assertEqual(result.count("btn-download"), 1)
+    def download_fixture(self):
+        return ('const downloadLink = "<a href=\\"/novels/${encodeURIComponent(String(novel.id))}/download\\" "'
+                + DOWNLOAD_ANCHOR + '">DL</a>";')
 
-    def test_qnap_safari_patch_rejects_upstream_drift(self):
-        sample = '<a href="/novels/1/download" ' + DOWNLOAD_ANCHOR + '>↓</a>'
-        with self.assertRaises(ValueError):
-            corrected_download_ui(sample)
-        with self.assertRaises(ValueError):
-            corrected_download_ui("no download link")
+    def test_qnap_epub_overlay_preserves_original_page(self):
+        fixed = corrected_download_ui(self.download_fixture())
+        self.assertIn(FIXED_DOWNLOAD_ANCHOR, fixed)
+        self.assertIn(OVERLAY_MARKER, fixed)
+        self.assertIn("event.preventDefault()", fixed)
+        self.assertIn("event.stopImmediatePropagation()", fixed)
+        self.assertIn("navigator.share", fixed)
+        self.assertIn("URL.createObjectURL", fixed)
+        self.assertIn("link.target = '_blank'", fixed)
+        self.assertNotIn('download target="_blank"', fixed)
+        self.assertEqual(fixed.count(FIXED_DOWNLOAD_ANCHOR), 1)
 
-    def test_qnap_safari_patch_cannot_double_apply(self):
-        sample = ('<a href="/novels/${encodeURIComponent(String(novel.id))}/download" '
-                  + DOWNLOAD_ANCHOR + '>↓</a>')
+    def test_qnap_overlay_is_idempotence_guarded(self):
+        first = corrected_download_ui(self.download_fixture())
         with self.assertRaises(ValueError):
-            corrected_download_ui(corrected_download_ui(sample))
+            corrected_download_ui(first)
+
+    def test_qnap_overlay_fails_when_upstream_link_changes(self):
+        bad = self.download_fixture().replace(DOWNLOAD_ROUTE, "/other/api")
+        with self.assertRaises(ValueError):
+            corrected_download_ui(bad)
+        with self.assertRaises(ValueError):
+            corrected_download_ui("no anchor")
+        with self.assertRaises(ValueError):
+            corrected_download_ui(self.download_fixture() * 2)
+
+    def test_qnap_overlay_fails_if_supporting_module_is_incomplete(self):
+        with self.assertRaises(ValueError):
+            corrected_download_ui(self.download_fixture(), "/* missing */")
+        from tools.build_epub_lite import OVERLAY_PATH
+        self.assertTrue(OVERLAY_PATH.is_file())
 
     def test_pinned_upstream_ui_integration_if_checked_out(self):
         from pathlib import Path
@@ -60,6 +74,7 @@ class EpubLiteBuildTests(unittest.TestCase):
             self.skipTest("upstream submodule not checked out")
         patched = corrected_download_ui(source.read_text(encoding="utf-8"))
         self.assertIn(FIXED_DOWNLOAD_ANCHOR, patched)
+        self.assertEqual(patched.count(OVERLAY_MARKER), 1)
         self.assertEqual(patched.count(FIXED_DOWNLOAD_ANCHOR), 1)
 
     def test_no_lite_feature_rejected(self):
