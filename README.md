@@ -14,7 +14,9 @@ Use QTS App Center to install or upgrade the QPKG **without uninstalling**. Back
 
 ## Updating
 
-The QTS manager checks public GitHub Releases **only when the user clicks 更新を確認**. It shows the latest stable or release-candidate version and offers a QPKG download link. No manual token is required. Installation is performed via QTS App Center: **automatic installation from the Web page is disabled server-side** until device-level crash/restart/rollback tests pass. Future releases must preserve this gate unless explicitly verified and approved.
+From **v0.1.5**, QTS manager can apply a newer **stable** GitHub QPKG directly from the Web UI: click 最新版を確認 → 最新版へ更新. No user-entered token, background polling or credential setup. Downloads are checked for exact release URL, size, SHA-256 and architecture. The previous stable QPKG is fetched for recovery before installing. Updates run in a detached worker; the installed version and both Web ports must pass a bounded health check. If validation fails, the worker attempts a verified rollback. Preview (RC) releases still require QTS App Center manual installation.
+
+**Bootstrap:** v0.1.4 has this action disabled, so install v0.1.5 once through App Center. LAN/Tailscale only; do not expose ports publicly. QTS signature policy is not bypassed. NAS one-click upgrade and power-loss recovery still require real-device testing.
 
 ## Source, licenses, upstream integration
 
