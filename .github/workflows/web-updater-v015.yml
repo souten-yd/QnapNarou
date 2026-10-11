@@ -53,7 +53,9 @@ jobs:
           encoded = Path(os.environ["DATA_ARCHIVE"]).read_bytes()
           decoder = zlib.decompressobj(zlib.MAX_WBITS | 16)
           decoded = decoder.decompress(encoded) + decoder.flush()
-          if not decoder.eof or len(decoded) > 600 * 1024 * 1024:
+          print("QDK payload bytes:", len(encoded), "uncompressed:", len(decoded),
+                "gzip_eof:", decoder.eof)
+          if not decoder.eof or len(decoded) > 3 * 1024 * 1024 * 1024:
               raise ValueError("QDK payload truncated or unreasonably large")
           Path("build/extracted/data-clean.tar").write_bytes(decoded)
           PY
