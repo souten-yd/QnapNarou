@@ -45,7 +45,19 @@ jobs:
           find build/extracted -maxdepth 2 -type f -printf '%p %s bytes\n'
           data=$(find build/extracted -maxdepth 1 -type f -name 'data.tar.gz' | head -n 1)
           test -n "$data"
-          tar -xzf "$data" -C build/payload
+          # QDK pads its embedded gzip archive with non-gzip trailing bytes.
+          # Decompress exactly the first verified gzip stream (no integrity bypass).
+          DATA_ARCHIVE="$data" python3 - <<'PY'
+          import os, zlib
+          from pathlib import Path
+          encoded = Path(os.environ["DATA_ARCHIVE"]).read_bytes()
+          decoder = zlib.decompressobj(zlib.MAX_WBITS | 16)
+          decoded = decoder.decompress(encoded) + decoder.flush()
+          if not decoder.eof or len(decoded) > 600 * 1024 * 1024:
+              raise ValueError("QDK payload truncated or unreasonably large")
+          Path("build/extracted/data-clean.tar").write_bytes(decoded)
+          PY
+          tar -xf build/extracted/data-clean.tar -C build/payload
           count=$(find build/payload -type f -name narou_rs | wc -l)
           test "$count" -eq 1
           binary=$(find build/payload -type f -name narou_rs | head -n 1)
