@@ -1,0 +1,100 @@
+name: v0.1.7 iOS EPUB save/share (one-shot QPKG)
+on:
+  push:
+    branches: [fix/ios-epub-save-overlay-v017]
+    paths: [.github/workflows/ios-save-v017.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qpkg-epub-x86:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: All Python and zero-dependency JavaScript regression tests
+        run: |
+          python3 -m unittest discover -s tests -v
+          python3 -m compileall -q tools tests
+          node --check tools/qnap_epub_download.js
+          node --check tests/test_qnap_epub_browser.cjs
+          node tests/test_qnap_epub_browser.cjs
+          test -f tools/qnap_epub_download.js
+          sh -n qdk/shared/QnapNarou.sh
+          sh -n qdk/shared/ensure_ws.sh
+          grep -q 'GPL-3.0-only' qdk/qpkg.cfg
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: upstream/narou.rs
+      - name: Install static runtime and QDK prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends musl-tools pkg-config build-essential cmake perl
+      - name: Build complete upstream runtime first (all helpers and web assets)
+        working-directory: upstream/narou.rs
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+        run: cargo local-build --locked --target x86_64-unknown-linux-musl
+      - name: Build embedded GPL EPUB and persistent iOS modal overlay
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+        run: |
+          python3 tools/build_epub_lite.py --source upstream/narou.rs --runtime upstream/narou.rs/narou --target x86_64-unknown-linux-musl
+          test -s upstream/narou.rs/narou/QnapNarou-Build-Variant.txt
+          grep -q 'GPL-3.0-only' upstream/narou.rs/narou/QnapNarou-Build-Variant.txt
+          grep -q 'AozoraEpub3_Lite' upstream/narou.rs/narou/Third-Party-License.md
+          test -s upstream/narou.rs/narou/AozoraEpub3-Lite-License.md
+          ! grep -q 'return Ok((payload, filename));' upstream/narou.rs/src/web/novels.rs
+          grep -F -q 'data-qnap-epub="1"' upstream/narou.rs/src/web/assets/js/ui/render.js
+          grep -F -q 'QnapNarou EPUB save/share overlay.' upstream/narou.rs/src/web/assets/js/ui/render.js
+          grep -a -F -q 'QnapNarou EPUB save/share overlay.' upstream/narou.rs/narou/narou_rs
+          if readelf -l upstream/narou.rs/narou/narou_rs | grep -q INTERP; then
+            echo 'QNAP binary must be static' >&2
+            exit 1
+          fi
+      - name: Targeted built-in EPUB generator regression test
+        working-directory: upstream/narou.rs
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+        run: |
+          cargo test --locked --target x86_64-unknown-linux-musl --features lite --lib epub_lite::tests::builds_streamable_epub_from_a_text_file -- --exact
+      - name: Stage and package QDK with GPL notice
+        run: |
+          python3 tools/stage_release.py --source upstream/narou.rs/narou --dest build/runtime
+          python3 tools/build_qdk.py --runtime build/runtime --out build/qdk
+          test -x build/qdk/x86_64/runtime/narou_rs
+          grep -q 'GPL-3.0-only' build/qdk/qpkg.cfg
+          test -s build/qdk/x86_64/runtime/AozoraEpub3-Lite-License.md
+          test -s build/qdk/shared/manager.py
+          test -x build/qdk/shared/ensure_ws.sh
+          grep -q 'wait_for_running' build/qdk/shared/installer.py
+          grep -a -F -q 'QnapNarou EPUB save/share overlay.' build/qdk/x86_64/runtime/narou_rs
+      - name: Build QPKG with QDK 2.5.3
+        run: |
+          curl -fL --retry 3 -o /tmp/qdk.deb https://github.com/qnap-dev/QDK/releases/download/v2.5.3/qdk_2.5.3_amd64.deb
+          sudo apt-get install -y /tmp/qdk.deb
+          (cd build/qdk && qbuild)
+      - name: Verify artifact and record checksum
+        run: |
+          mkdir -p dist
+          count=$(find build/qdk -name '*.qpkg' -type f | wc -l)
+          test "$count" -eq 1
+          find build/qdk -type f -name '*.qpkg' -exec cp '{}' dist/QnapNarou_x86_64_0.1.7.qpkg \;
+          test -s dist/QnapNarou_x86_64_0.1.7.qpkg
+          sha256sum dist/QnapNarou_x86_64_0.1.7.qpkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QnapNarou-x86_64-0.1.7-iOS-Save
+          path: dist/QnapNarou_x86_64_0.1.7.qpkg
+          retention-days: 7
+          if-no-files-found: error
