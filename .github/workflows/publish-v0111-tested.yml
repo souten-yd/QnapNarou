@@ -1,0 +1,112 @@
+name: Publish verified QnapNarou v0.1.11 QPKG (no Rust rebuild)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-v0111-tested.yml
+      - docs/release-v0111-recovery.md
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-v0111-tested.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qnapnarou-publish-v0.1.11
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check unchanged QPKG metadata and source provenance
+        run: |
+          set -eu
+          grep -qx 'QPKG_VER="0.1.11"' qdk/qpkg.cfg
+          grep -qx 'QPKG_LICENSE="GPL-3.0-only"' qdk/qpkg.cfg
+          test "$(git rev-parse HEAD:upstream/narou.rs)" = "4c0c15849690b12ee27faf617eabbb863b73d72a"
+          grep -q 'NAROU_RS_DISABLE_SELF_UPDATE=1' qdk/shared/QnapNarou.sh
+          python3 -m unittest discover -s tests -q
+
+  publish-tested:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      contents: write
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+      - name: Assert original CI provenance and no existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD:upstream/narou.rs)" = "4c0c15849690b12ee27faf617eabbb863b73d72a"
+          test "$(git cat-file -t 217f96c4b07c5b371bba634628f066d86d3554bc)" = commit
+          grep -qx 'QPKG_VER="0.1.11"' qdk/qpkg.cfg
+          test "$(gh api repos/souten-yd/QnapNarou/actions/runs/40242801386 --jq '.head_sha')" = "217f96c4b07c5b371bba634628f066d86d3554bc"
+          test "$(gh api repos/souten-yd/QnapNarou/actions/artifacts/12617454693 --jq '.workflow_run.head_sha')" = "217f96c4b07c5b371bba634628f066d86d3554bc"
+          test "$(gh api repos/souten-yd/QnapNarou/actions/artifacts/12617454693 --jq '.digest')" = "sha256:7b67bf0cbd31c6a6689461ac760ef3b730a93e9692d56996ca6a3263baa74fb5"
+          for step in \
+            "Verify pinned source/tag/version and refuse release overwrite" \
+            "Python, iPhone JavaScript, QNAP service guards" \
+            "Build complete upstream native runtime and helpers" \
+            "Apply reviewed GPL EPUB/iPhone and Home Screen source overlays" \
+            "Native EPUB regression test" \
+            "Inspect and package complete QDK runtime" \
+            "Run actions/upload-artifact@v4"; do
+            result="$(gh api repos/souten-yd/QnapNarou/actions/jobs/121318025330 \
+              --jq '.steps[] | select(.name == "'"$step"'") | .conclusion')"
+            test "$result" = success || { echo "Previously tested step NOT green: $step ($result)" >&2; exit 1; }
+          done
+          if gh release view v0.1.11 >/dev/null 2>&1; then
+            echo 'v0.1.11 already exists; refusing overwrite' >&2; exit 1
+          fi
+      - name: Retrieve and verify the original tested QPKG (zero recompilation)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          set -eu
+          mkdir -p dist
+          gh run download 40242801386 --name QnapNarou-x86_64-0.1.11-reviewed-v0.5.3 --dir dist
+          test -s dist/QnapNarou_x86_64_0.1.11.qpkg
+          test -s dist/SHA256SUMS
+          # Manifest paths are prefixed with 'dist/', so verify from repo root.
+          sha256sum -c dist/SHA256SUMS
+          echo '282329935a7adcfe36c8dab68af2150b57f1867b79f5d1a38d9928ab52b777ea  dist/QnapNarou_x86_64_0.1.11.qpkg' | sha256sum -c -
+          test "$(wc -l < dist/SHA256SUMS)" -eq 1
+          grep -qx '282329935a7adcfe36c8dab68af2150b57f1867b79f5d1a38d9928ab52b777ea  dist/QnapNarou_x86_64_0.1.11.qpkg' dist/SHA256SUMS
+      - name: Publish stable v0.1.11 using original build commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: souten-yd/QnapNarou
+        run: |
+          set -eu
+          cat > /tmp/qnapnarou-v0111.md <<'RELEASE_NOTES'
+          # QnapNarou v0.1.11 — narou.rs v0.5.3
+
+          The exact GPL/x86_64 QPKG from Actions run 40242801386 is published after provenance checks, native Rust/EPUB regression tests, QDK packaging and SHA-256 verification.
+
+          - Pinned upstream narou.rs v0.5.3: 4c0c15849690b12ee27faf617eabbb863b73d72a.
+          - Original reproducible QnapNarou source: commit 217f96c4b07c5b371bba634628f066d86d3554bc.
+          - iPhone EPUB download/share modal and Home Screen icon, original Narou :8888, QTS portal and user-initiated Web updater :8889, QTS cold-boot retry.
+          - Native QPKG SHA-256: 282329935a7adcfe36c8dab68af2150b57f1867b79f5d1a38d9928ab52b777ea.
+          - Publish-only recovery from the original artifact; no source rebuild or binary patch.
+          - QTS NAS install/upgrade/rollback, disk writes, and power-loss acceptance are not yet proven for this new upstream version. Backup QnapNarou-data before updating. Expose only on LAN/Tailscale.
+          - The later PR #18 disk I/O diagnostic is not included in this QPKG; it will be in a subsequent build.
+          RELEASE_NOTES
+          gh release create v0.1.11 dist/QnapNarou_x86_64_0.1.11.qpkg dist/SHA256SUMS \
+            --target 217f96c4b07c5b371bba634628f066d86d3554bc --latest \
+            --title 'QnapNarou v0.1.11 — upstream narou.rs v0.5.3' \
+            --notes-file /tmp/qnapnarou-v0111.md
