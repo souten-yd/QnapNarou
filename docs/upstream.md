@@ -22,3 +22,7 @@ python3 -m unittest discover -s tests -v
 Distributions must provide complete corresponding GPL source, including the pinned upstream commit and the QNAP overlay. Preserve `Third-Party-License.md` and the AozoraEpub3_Lite license notices.
 
 The QPKG currently covers x86_64 only; ARM64 is not tested. Low-write / memory-batching and fully automatic update/rollback are separate unfinished milestones.
+
+## Reviewed source v0.5.3
+
+QPKG v0.1.11 pins annotated narou.rs tag v0.5.3 to commit `4c0c15849690b12ee27faf617eabbb863b73d72a`. Upstream has corrected the cached-text EPUB behavior itself: the QNAP build script checks for the specific safe UTF-8-to-EPUB path and no longer patches it again. The separately guarded iPhone EPUB modal and Home Screen icon are still applied at native compile time. The one-shot GitHub Action will reject source SHA drift. QTS installation and rollback must be verified on the NAS; packaging does not intentionally migrate or delete stored novels.

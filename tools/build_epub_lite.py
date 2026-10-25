@@ -61,16 +61,28 @@ def corrected_download_ui(source, overlay=None):
 
 
 def corrected_web_source(source):
+    """Remove the legacy bad fast path, or verify v0.5.3's fixed EPUB path."""
     if source.count(START) != 1 or source.count(END) != 1:
         raise ValueError("upstream EPUB handler drift: expected markers missing/duplicated")
     start = source.index(START)
     end = source.index(END, start)
     old = source[start:end]
-    if BAD_RETURN not in old or "novel_outputs" not in old:
-        raise ValueError("upstream EPUB handler drift: cached text path no longer matches")
-    if "#[cfg(feature = \"lite\")]" not in source[:start]:
-        raise ValueError("only apply this workaround to lite-enabled EPUB handler")
-    return source[:start] + FIX_COMMENT + source[end:]
+    if '#[cfg(feature = "lite")]' not in source[:start]:
+        raise ValueError("only apply the workaround to lite-enabled EPUB handler")
+    if BAD_RETURN in old:
+        if "novel_outputs" not in old:
+            raise ValueError("upstream cached text fast path changed")
+        return source[:start] + FIX_COMMENT + source[end:]
+    # Reviewed upstream v0.5.3 converts cached UTF-8 text into a real EPUB;
+    # no longer patch that fixed path. Never accept an arbitrary unknown path.
+    safe_markers = (
+        "let cached_text = if keep_text",
+        "String::from_utf8(payload)",
+        "`converted_text` contains UTF-8 text, never EPUB bytes.",
+    )
+    if not all(m in source[end:] for m in safe_markers) or "build_book" not in source[end:]:
+        raise ValueError("upstream EPUB handler changed; review required")
+    return source
 
 
 def ensure_pinned(repo):
