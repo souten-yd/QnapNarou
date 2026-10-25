@@ -2,6 +2,12 @@
 
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
+## v0.1.11 — reviewed narou.rs v0.5.3 source build
+
+- One-shot GitHub Actions x86_64 musl/GPL source build pinned to upstream v0.5.3 (4c0c15849690b12ee27faf617eabbb863b73d72a). Includes QNAP EPUB modal/iPhone icon overlays and complete QDK QPKG output.
+- No scheduled polling. Manual Actions rebuild uses pinned source; Web updater remains explicitly user initiated.
+- QTS v0.1.11 install/rollback/IOPS acceptance remains unverified on hardware. Back up QnapNarou-data before upgrading.
+
 ## v0.1.10 — QTS cold-boot auto-recovery
 
 - [v0.1.5 updater bootstrap](https://github.com/souten-yd/QnapNarou/releases/tag/v0.1.5) — first Web-updater version, installed once through QTS App Center.

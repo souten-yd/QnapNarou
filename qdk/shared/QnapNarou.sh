@@ -100,6 +100,8 @@ start_once() {
   }
   export HOME="$HOME_DIR"
   export NAROU_DATA="$DATA"
+  export NAROU_RS_DISABLE_SELF_UPDATE=1
+  export PYTHONDONTWRITEBYTECODE=1
   cd "$LIBRARY" || { BOOT_REASON="novel library not mounted"; return 1; }
   if [ ! -d .narou ]; then
     "$BIN" init >/dev/null 2>&1 || { BOOT_REASON="Narou initialization pending"; return 1; }

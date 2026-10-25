@@ -16,6 +16,31 @@ class EpubLiteBuildTests(unittest.TestCase):
             + '}\n'
         )
 
+    def test_fixed_upstream_epub_handler(self):
+        safe = self.sample().replace(
+            '    SELECT payload FROM novel_outputs;\n'
+            '    return Ok((payload, filename));\n',
+            '    let cached_text = if keep_text {\n'
+            '        // `converted_text` contains UTF-8 text, never EPUB bytes.\n'
+            '        String::from_utf8(payload)\n'
+            '    };\n',
+        )
+        self.assertEqual(corrected_web_source(safe), safe)
+
+    def test_unreviewed_upstream_rejected(self):
+        unknown = self.sample().replace('return Ok((payload, filename));', 'return serve_epub_bytes(payload);')
+        with self.assertRaises(ValueError):
+            corrected_web_source(unknown)
+
+    def test_pinned_upstream_epub_if_checked_out(self):
+        from pathlib import Path
+        file = Path(__file__).resolve().parents[1] / "upstream/narou.rs/src/web/novels.rs"
+        if not file.is_file():
+            self.skipTest("upstream submodule not checked out")
+        content = file.read_text(encoding="utf-8")
+        self.assertEqual(corrected_web_source(content), content)
+        self.assertNotIn('return Ok((payload, filename));', content)
+
     def test_replaces_raw_text_ebook_response(self):
         fixed = corrected_web_source(self.sample())
         self.assertNotIn('return Ok((payload, filename));', fixed)
