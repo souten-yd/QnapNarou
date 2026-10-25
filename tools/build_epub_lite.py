@@ -80,7 +80,7 @@ def corrected_web_source(source):
         "String::from_utf8(payload)",
         "`converted_text` contains UTF-8 text, never EPUB bytes.",
     )
-    if not all(m in old for m in safe_markers) or "build_book" not in source[end:]:
+    if not all(m in source[end:] for m in safe_markers) or "build_book" not in source[end:]:
         raise ValueError("upstream EPUB handler changed; review required")
     return source
 
