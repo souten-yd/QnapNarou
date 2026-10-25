@@ -1,0 +1,33 @@
+name: M4 disk probe read-only safety checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - tools/io_probe.py
+      - tests/test_io_probe.py
+      - docs/low-write.md
+      - tools/build_qdk.py
+      - tests/test_build_qdk.py
+      - .github/workflows/m4-io-probe-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Test existing QDK and diskstats parsing (no runtime, no build)
+        run: |
+          set -eu
+          python3 -m pip install --quiet pillow
+          python3 -m unittest discover -s tests -v
+          python3 -m compileall -q tools/io_probe.py tests/test_io_probe.py
+          sh -n qdk/shared/QnapNarou.sh
+          grep -q 'io_probe.py' tools/build_qdk.py
+          grep -q 'DISKSTATS = Path("/proc/diskstats")' tools/io_probe.py
+          ! grep -q 'NAROU_RS_QNAP_MEMORY_CACHE=' qdk/shared/QnapNarou.sh
+          ! grep -q 'time.sleep(' qdk/shared/QnapNarou.sh

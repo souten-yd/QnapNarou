@@ -30,7 +30,7 @@ def prepare(runtime: Path, out: Path):
         # Persistent QPKG/portal icons are packaged once: no QTS-side image processing.
         generate_icons(out)
         # The management server and updater ship with every QPKG, no pip install.
-        for name in ("manager.py", "installer.py", "update_check.py", "configure_hosts.py"):
+        for name in ("manager.py", "installer.py", "update_check.py", "configure_hosts.py", "io_probe.py"):
             shutil.copy2(template.parent / "tools" / name, shared / name)
         arch = out / "x86_64" / "runtime"
         arch.parent.mkdir()
