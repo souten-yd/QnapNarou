@@ -31,6 +31,7 @@ jobs:
           grep -qx 'QPKG_LICENSE="GPL-3.0-only"' qdk/qpkg.cfg
           test "$(git rev-parse HEAD:upstream/narou.rs)" = "4c0c15849690b12ee27faf617eabbb863b73d72a"
           grep -q 'NAROU_RS_DISABLE_SELF_UPDATE=1' qdk/shared/QnapNarou.sh
+          python3 -m pip install --quiet pillow
           python3 -m unittest discover -s tests -q
 
   publish-tested:
