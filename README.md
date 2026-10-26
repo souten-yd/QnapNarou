@@ -2,6 +2,13 @@
 
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
+## v0.1.12 — read-only disk I/O diagnosis (M4 safe subset)
+
+- Builds the same reviewed upstream narou.rs v0.5.3, complete GPL EPUB/iPhone UI and icons as v0.1.11.
+- QDK includes the read-only on-demand `io_probe.py` in shared files. It reports whole-device read/write IOPS, throughput and busy %, not per-process activity; no background sampling. [QTS measurement instructions](docs/low-write.md).
+- Restores all six diagnostic files from merged PR #18 that were unintentionally reverted by the v0.1.11 publishing recovery merge. No SQLite WAL/cache, runtime startup semantics, installer, or novel data changes.
+- A guarded GitHub Actions one-shot source build verifies the pinned SHA, native Rust tests, QDK package inclusion and final SHA256SUMS from the correct root before publishing v0.1.12. Real QTS boot, interrupted upgrade/rollback and idle I/O measurements are still not device-verified.
+
 ## v0.1.11 — reviewed narou.rs v0.5.3 source build
 
 - One-shot GitHub Actions x86_64 musl/GPL source build pinned to upstream v0.5.3 (4c0c15849690b12ee27faf617eabbb863b73d72a). Includes QNAP EPUB modal/iPhone icon overlays and complete QDK QPKG output.
