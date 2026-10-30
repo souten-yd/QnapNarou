@@ -6,7 +6,7 @@ SHA = "47bee6ba703441d3aa989e29694e3df485c4c643"
 class Release013Tests(unittest.TestCase):
     def test_release_pins_and_qdk(self):
         wf = (ROOT / ".github/workflows/qnapnarou-release-v0113.yml").read_text()
-        self.assertIn('QPKG_VER="0.1.13"', (ROOT / 'qdk/qpkg.cfg').read_text())
+        self.assertIn('QPKG_VER="0.1.14"', (ROOT / 'qdk/qpkg.cfg').read_text())
         for item in (SHA, 'refs/tags/v0.5.5^{commit}', 'gh release create v0.1.13',
                      'sha256sum -c dist/SHA256SUMS', 'cargo local-build --locked',
                      'cmp tools/io_probe.py build/qdk/shared/io_probe.py'):

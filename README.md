@@ -1,5 +1,11 @@
 # QnapNarou
 
+## v0.1.14 — Pixiv / アルファポリス前処理パーサー修正
+
+- v0.1.13 と同じ narou.rs v0.5.5 を固定。pest 2.9.4 の `stack limit reached` でバンドル済みPixiv／アルファポリスDSLがコンパイルできない問題に対し、QNAP限定のレビュー可能なビルド時パーサー修正を適用します。
+- 16 MiBの専用パーサースレッドと256 KiBのDSL入力上限を使用。pestのスタック保護は無効化せず、Pixiv・アルファポリスの完全な定義を小さい呼び出し側スタックからテストします。
+- 小説データ、サイト定義、DSLの意味、QNAPの起動動作・ポート・管理画面・iPhone EPUB機能に変更はありません。実機での更新後検証は別途必要です。詳細: [v0.1.14 修正と検証](docs/release-v0114.md)。
+
 ## v0.1.13 — narou.rs v0.5.5 (2026-10-30)
 
 - Pinned upstream v0.5.5 (`47bee6ba703441d3aa989e29694e3df485c4c643`); dedicated one-shot Actions builds the complete native GPL/lite x86_64 QPKG and publishes only after checks pass.
