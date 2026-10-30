@@ -9,8 +9,10 @@ import os
 from pathlib import Path
 try:
     from tools.build_narou_home_icon import patch_native_upstream
+    from tools.patch_preprocess_parser import apply as patch_preprocess_parser
 except ModuleNotFoundError:
     from build_narou_home_icon import patch_native_upstream
+    from patch_preprocess_parser import apply as patch_preprocess_parser
 import shutil
 import subprocess
 import sys
@@ -123,6 +125,7 @@ def build(repo, runtime, target):
 
     patch(repo)
     patch_native_upstream(repo)
+    patch_preprocess_parser(repo)
     env = os.environ.copy()
     env["NAROU_RS_RELEASE_BUILD"] = "1"
     env["NAROU_RS_LOCAL_BUILD"] = "1"
