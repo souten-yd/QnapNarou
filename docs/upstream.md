@@ -26,3 +26,7 @@ The QPKG currently covers x86_64 only; ARM64 is not tested. Low-write / memory-b
 ## Reviewed source v0.5.3
 
 QPKG v0.1.11 pins annotated narou.rs tag v0.5.3 to commit `4c0c15849690b12ee27faf617eabbb863b73d72a`. Upstream has corrected the cached-text EPUB behavior itself: the QNAP build script checks for the specific safe UTF-8-to-EPUB path and no longer patches it again. The separately guarded iPhone EPUB modal and Home Screen icon are still applied at native compile time. The one-shot GitHub Action will reject source SHA drift. QTS installation and rollback must be verified on the NAS; packaging does not intentionally migrate or delete stored novels.
+
+## Reviewed source v0.5.5
+
+QPKG v0.1.13 pins the annotated tag to `47bee6ba703441d3aa989e29694e3df485c4c643`. Verified EPUB cached-text guard, iPhone download route and embedded icon anchors against the new source. New upstream schema changes require a backup and QTS test prior to a device-qualified migration. Experimental M4 SQLite RAM-cache patch remains disabled.

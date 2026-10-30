@@ -1,5 +1,11 @@
 # QnapNarou
 
+## v0.1.13 — narou.rs v0.5.5 (2026-10-30)
+
+- Pinned upstream v0.5.5 (`47bee6ba703441d3aa989e29694e3df485c4c643`); dedicated one-shot Actions builds the complete native GPL/lite x86_64 QPKG and publishes only after checks pass.
+- Upstream v0.5.4/v0.5.5 includes dependency/security fixes, new UI dialogs and library metadata/SQLite migrations. Existing QNAP ports 8888/8889, persistent novel data directory, iPhone EPUB modal, icons and read-only I/O probe remain.
+- M4 SQLite RAM cache is **not** enabled. QTS installation, schema migration and rollback need real-device acceptance. **Back up QnapNarou-data before upgrading.** [Acceptance checklist](docs/release-v0113.md).
+
 QTS 5.x QPKG integration of [Rumia-Channel/narou.rs](https://github.com/Rumia-Channel/narou.rs).
 
 ## v0.1.12 — read-only disk I/O diagnosis (M4 safe subset)

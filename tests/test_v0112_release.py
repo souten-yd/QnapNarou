@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class QnapNarouV0112Tests(unittest.TestCase):
     def test_release_version_and_diagnostic_are_packaged(self):
-        self.assertIn('QPKG_VER="0.1.12"', (ROOT / "qdk/qpkg.cfg").read_text())
+        self.assertIn('QPKG_VER="0.1.13"', (ROOT / "qdk/qpkg.cfg").read_text())
         self.assertIn('QPKG_LICENSE="GPL-3.0-only"', (ROOT / "qdk/qpkg.cfg").read_text())
         self.assertIn('"configure_hosts.py", "io_probe.py"', (ROOT / "tools/build_qdk.py").read_text())
         for relative in ("tools/io_probe.py", "tests/test_io_probe.py", "docs/low-write.md"):
