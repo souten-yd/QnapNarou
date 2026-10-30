@@ -16,7 +16,6 @@ PARSER_FILE = Path("src/downloader/preprocess/parser.rs")
 ENTRY = "pub fn parse_preprocess(source: &str) -> Result<Vec<Stmt>, String> {\n"
 NEXT = "\nfn build_stmt("
 MARKER = "QNAP_PREPROCESS_STACK_FIX"
-WORKER_NAME = "narou-preprocess-parse"
 
 # pest 2.9.4 prevents unchecked native stack exhaustion. Its ordinary caller
 # stack may be too small for reviewed bundled DSLs. Give the parser a bounded
@@ -101,7 +100,7 @@ def apply(repo: Path) -> None:
         raise ValueError("upstream gitlink/checkout is not the reviewed v0.5.5 commit")
     parser = repo / PARSER_FILE
     raw = parser.read_bytes()
-    blob_hash = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\\0" + raw).hexdigest()
+    blob_hash = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
     if blob_hash != EXPECTED_PARSER_BLOB:
         raise ValueError("upstream parser source drift; refusing unreviewed QNAP patch")
     new_text = rewritten_source(raw.decode("utf-8"))
