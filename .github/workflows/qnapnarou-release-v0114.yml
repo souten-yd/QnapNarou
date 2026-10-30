@@ -54,7 +54,7 @@ jobs:
           set -euo pipefail
           python3 tools/patch_preprocess_parser.py --source upstream/narou.rs
           (cd upstream/narou.rs && cargo test --locked --features lite --lib qnap_preprocess_stack_tests -- --nocapture) 2>&1 | tee /tmp/qnap-parser-regression.log
-          grep -Eq 'test result: ok\\. 2 passed' /tmp/qnap-parser-regression.log
+          grep -F -q 'test result: ok. 2 passed' /tmp/qnap-parser-regression.log
   native-qpkg-and-publish:
     permissions:
       contents: write
@@ -142,7 +142,7 @@ jobs:
           set -euo pipefail
           cargo test --locked --target x86_64-unknown-linux-musl --features lite --lib epub_lite::tests::builds_streamable_epub_from_a_text_file -- --exact
           cargo test --locked --target x86_64-unknown-linux-musl --features lite --lib qnap_preprocess_stack_tests -- --nocapture 2>&1 | tee /tmp/qnap-parser-regression.log
-          grep -Eq 'test result: ok\\. 2 passed' /tmp/qnap-parser-regression.log
+          grep -F -q 'test result: ok. 2 passed' /tmp/qnap-parser-regression.log
       - name: Inspect and package complete QDK runtime
         run: |
           set -eu
